@@ -18,6 +18,7 @@ end
 
 local CountdownEvent = remoteEventsFolder:WaitForChild("CountdownUpdate", 10)
 local QueueJoinEvent = remoteEventsFolder:WaitForChild("QueueJoin", 10)
+local QueueLeaveEvent = remoteEventsFolder:WaitForChild("QueueLeave", 10)
 
 -- Create GUI
 local screenGui = Instance.new("ScreenGui")
@@ -28,53 +29,78 @@ screenGui.Parent = playerGui
 -- Main frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "CountdownFrame"
-mainFrame.Size = UDim2.new(0, 300, 0, 150)
-mainFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.Size = UDim2.new(0, 350, 0, 180)
+mainFrame.Position = UDim2.new(0.5, -175, 0.15, 0)  -- Moved higher on screen
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
 mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
 mainFrame.Parent = screenGui
 
 -- Add rounded corners
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
+corner.CornerRadius = UDim.new(0, 20)
 corner.Parent = mainFrame
+
+-- Add border stroke for cartoony effect
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Thickness = 4
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = mainFrame
 
 -- Queue type label
 local queueTypeLabel = Instance.new("TextLabel")
 queueTypeLabel.Name = "QueueTypeLabel"
-queueTypeLabel.Size = UDim2.new(1, 0, 0, 40)
-queueTypeLabel.Position = UDim2.new(0, 0, 0, 10)
+queueTypeLabel.Size = UDim2.new(1, 0, 0, 50)
+queueTypeLabel.Position = UDim2.new(0, 0, 0, 5)
 queueTypeLabel.BackgroundTransparency = 1
 queueTypeLabel.Text = "SOLO QUEUE"
 queueTypeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-queueTypeLabel.TextSize = 24
-queueTypeLabel.Font = Enum.Font.GothamBold
+queueTypeLabel.TextSize = 28
+queueTypeLabel.Font = Enum.Font.FredokaOne  -- More cartoony font
 queueTypeLabel.Parent = mainFrame
+
+-- Add text stroke for cartoony effect
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Color = Color3.fromRGB(0, 0, 0)
+titleStroke.Thickness = 3
+titleStroke.Parent = queueTypeLabel
 
 -- Countdown label
 local countdownLabel = Instance.new("TextLabel")
 countdownLabel.Name = "CountdownLabel"
-countdownLabel.Size = UDim2.new(1, 0, 0, 60)
+countdownLabel.Size = UDim2.new(1, 0, 0, 80)
 countdownLabel.Position = UDim2.new(0, 0, 0, 50)
 countdownLabel.BackgroundTransparency = 1
 countdownLabel.Text = "20"
 countdownLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-countdownLabel.TextSize = 48
-countdownLabel.Font = Enum.Font.GothamBold
+countdownLabel.TextSize = 64
+countdownLabel.Font = Enum.Font.FredokaOne  -- More cartoony font
 countdownLabel.Parent = mainFrame
+
+-- Add thick text stroke for cartoony effect
+local countdownStroke = Instance.new("UIStroke")
+countdownStroke.Color = Color3.fromRGB(0, 0, 0)
+countdownStroke.Thickness = 5
+countdownStroke.Parent = countdownLabel
 
 -- Status label
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Name = "StatusLabel"
-statusLabel.Size = UDim2.new(1, 0, 0, 30)
-statusLabel.Position = UDim2.new(0, 0, 0, 110)
+statusLabel.Size = UDim2.new(1, 0, 0, 40)
+statusLabel.Position = UDim2.new(0, 0, 0, 135)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "Waiting for players..."
-statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-statusLabel.TextSize = 16
-statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.TextSize = 20
+statusLabel.Font = Enum.Font.FredokaOne  -- More cartoony font
 statusLabel.Parent = mainFrame
+
+-- Add text stroke for cartoony effect
+local statusStroke = Instance.new("UIStroke")
+statusStroke.Color = Color3.fromRGB(0, 0, 0)
+statusStroke.Thickness = 2
+statusStroke.Parent = statusLabel
 
 -- Queue colors
 local QueueColors = {
@@ -133,6 +159,14 @@ if CountdownEvent then
 			task.wait(1)
 			mainFrame.Visible = false
 		end
+	end)
+end
+
+-- Handle queue leave event
+if QueueLeaveEvent then
+	QueueLeaveEvent.OnClientEvent:Connect(function()
+		print("[CountdownGUI] Left queue - hiding GUI")
+		mainFrame.Visible = false
 	end)
 end
 

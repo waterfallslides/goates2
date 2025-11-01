@@ -50,6 +50,7 @@ local ActiveCountdowns = {
 }
 
 local PlayersInQueue = {} -- Tracks which queue each player is in
+local PlayerDebounce = {} -- Debounce table to prevent spam
 
 -- Remote events for client communication
 local RemoteEvents = Instance.new("Folder")
@@ -64,13 +65,24 @@ local QueueJoinEvent = Instance.new("RemoteEvent")
 QueueJoinEvent.Name = "QueueJoin"
 QueueJoinEvent.Parent = RemoteEvents
 
+local QueueLeaveEvent = Instance.new("RemoteEvent")
+QueueLeaveEvent.Name = "QueueLeave"
+QueueLeaveEvent.Parent = RemoteEvents
+
 -- Helper function to remove player from all queues
-local function removePlayerFromQueues(player)
+local function removePlayerFromQueues(player, notifyClient)
+	if notifyClient == nil then notifyClient = true end
+
 	for queueType, queue in pairs(Queues) do
 		for i, queuedPlayer in ipairs(queue) do
 			if queuedPlayer == player then
 				table.remove(queue, i)
 				print("[Queue] Removed " .. player.Name .. " from " .. queueType .. " queue")
+
+				-- Notify client to hide GUI
+				if notifyClient then
+					QueueLeaveEvent:FireClient(player)
+				end
 				break
 			end
 		end
@@ -182,12 +194,18 @@ local function setupPad(pad, queueType)
 	pad.BrickColor = BrickColor.new(QueueConfig[queueType].Color)
 	pad.Material = Enum.Material.Neon
 
-	-- Create touch detection
+	-- Create touch detection with debounce
 	pad.Touched:Connect(function(hit)
 		local humanoid = hit.Parent:FindFirstChild("Humanoid")
 		if humanoid then
 			local player = Players:GetPlayerFromCharacter(hit.Parent)
 			if player then
+				-- Debounce check
+				if PlayerDebounce[player] then
+					return
+				end
+				PlayerDebounce[player] = true
+
 				-- Add player to queue
 				local added = addPlayerToQueue(player, queueType)
 
@@ -208,6 +226,22 @@ local function setupPad(pad, queueType)
 						end
 					end
 				end
+
+				-- Reset debounce after short delay
+				task.delay(0.5, function()
+					PlayerDebounce[player] = nil
+				end)
+			end
+		end
+	end)
+
+	-- TouchEnded detection - remove player when they step off
+	pad.TouchEnded:Connect(function(hit)
+		local humanoid = hit.Parent:FindFirstChild("Humanoid")
+		if humanoid then
+			local player = Players:GetPlayerFromCharacter(hit.Parent)
+			if player and PlayersInQueue[player] == queueType then
+				removePlayerFromQueues(player, true)
 			end
 		end
 	end)
