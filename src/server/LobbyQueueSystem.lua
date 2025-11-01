@@ -196,24 +196,42 @@ local function setupPad(pad, queueType)
 	pad.BrickColor = BrickColor.new(QueueConfig[queueType].Color)
 	pad.Material = Enum.Material.Neon
 
-	-- Track number of body parts touching the pad per player
-	local playerTouchCounts = {}
+	-- Store players currently on this pad
+	local playersOnPad = {}
+
+	-- Function to check if player is actually on pad
+	local function isPlayerOnPad(player)
+		local character = player.Character
+		if not character then return false end
+
+		local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+		if not humanoidRootPart then return false end
+
+		-- Check if player's position is within pad bounds
+		local padPos = pad.Position
+		local padSize = pad.Size
+		local playerPos = humanoidRootPart.Position
+
+		local xDiff = math.abs(playerPos.X - padPos.X)
+		local zDiff = math.abs(playerPos.Z - padPos.Z)
+		local yDiff = playerPos.Y - padPos.Y
+
+		return xDiff <= padSize.X / 2 and zDiff <= padSize.Z / 2 and yDiff >= 0 and yDiff <= 10
+	end
 
 	-- Create touch detection with debounce
 	pad.Touched:Connect(function(hit)
-		local humanoid = hit.Parent:FindFirstChild("Humanoid")
+		local character = hit.Parent
+		local humanoid = character:FindFirstChild("Humanoid")
 		if humanoid then
-			local player = Players:GetPlayerFromCharacter(hit.Parent)
+			local player = Players:GetPlayerFromCharacter(character)
 			if player then
-				-- Track touch count
-				if not playerTouchCounts[player] then
-					playerTouchCounts[player] = 0
-				end
-				playerTouchCounts[player] = playerTouchCounts[player] + 1
+				-- Mark player as on pad
+				playersOnPad[player] = true
 
 				-- Cancel any pending leave timer
 				if LeaveTimers[player] then
-					LeaveTimers[player]:Cancel()
+					task.cancel(LeaveTimers[player])
 					LeaveTimers[player] = nil
 				end
 
@@ -247,7 +265,7 @@ local function setupPad(pad, queueType)
 					end
 
 					-- Reset debounce after delay
-					task.delay(1, function()
+					task.delay(2, function()
 						PlayerDebounce[player] = nil
 					end)
 				end
@@ -255,36 +273,30 @@ local function setupPad(pad, queueType)
 		end
 	end)
 
-	-- TouchEnded detection - remove player when they step off
-	pad.TouchEnded:Connect(function(hit)
-		local humanoid = hit.Parent:FindFirstChild("Humanoid")
-		if humanoid then
-			local player = Players:GetPlayerFromCharacter(hit.Parent)
-			if player then
-				-- Decrease touch count
-				if playerTouchCounts[player] then
-					playerTouchCounts[player] = playerTouchCounts[player] - 1
+	-- Continuously check if players are still on pad
+	task.spawn(function()
+		while true do
+			task.wait(0.5) -- Check every half second
 
-					-- Only remove from queue if no parts are touching
-					if playerTouchCounts[player] <= 0 then
-						playerTouchCounts[player] = nil
+			for player, _ in pairs(playersOnPad) do
+				if not isPlayerOnPad(player) then
+					playersOnPad[player] = nil
 
-						-- Only remove if in this queue
-						if PlayersInQueue[player] == queueType then
-							-- Cancel existing timer if any
-							if LeaveTimers[player] then
-								LeaveTimers[player]:Cancel()
-							end
-
-							-- Create a delayed leave timer (1 second delay)
-							LeaveTimers[player] = task.delay(1, function()
-								-- Double-check they're still not on the pad
-								if PlayersInQueue[player] == queueType and not playerTouchCounts[player] then
-									removePlayerFromQueues(player, true)
-								end
-								LeaveTimers[player] = nil
-							end)
+					-- Only remove if in this queue
+					if PlayersInQueue[player] == queueType then
+						-- Cancel existing timer if any
+						if LeaveTimers[player] then
+							task.cancel(LeaveTimers[player])
 						end
+
+						-- Create a delayed leave timer (0.5 second delay)
+						LeaveTimers[player] = task.delay(0.5, function()
+							-- Double-check they're still not on the pad
+							if PlayersInQueue[player] == queueType and not playersOnPad[player] then
+								removePlayerFromQueues(player, true)
+							end
+							LeaveTimers[player] = nil
+						end)
 					end
 				end
 			end
