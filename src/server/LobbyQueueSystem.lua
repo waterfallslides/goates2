@@ -51,6 +51,8 @@ local ActiveCountdowns = {
 
 local PlayersInQueue = {} -- Tracks which queue each player is in
 local PlayerDebounce = {} -- Debounce table to prevent spam
+local PlayerTouchingPad = {} -- Tracks if player is currently on a pad
+local LeaveTimers = {} -- Timers for delayed queue leaving
 
 -- Remote events for client communication
 local RemoteEvents = Instance.new("Folder")
@@ -194,43 +196,61 @@ local function setupPad(pad, queueType)
 	pad.BrickColor = BrickColor.new(QueueConfig[queueType].Color)
 	pad.Material = Enum.Material.Neon
 
+	-- Track number of body parts touching the pad per player
+	local playerTouchCounts = {}
+
 	-- Create touch detection with debounce
 	pad.Touched:Connect(function(hit)
 		local humanoid = hit.Parent:FindFirstChild("Humanoid")
 		if humanoid then
 			local player = Players:GetPlayerFromCharacter(hit.Parent)
 			if player then
-				-- Debounce check
-				if PlayerDebounce[player] then
-					return
+				-- Track touch count
+				if not playerTouchCounts[player] then
+					playerTouchCounts[player] = 0
 				end
-				PlayerDebounce[player] = true
+				playerTouchCounts[player] = playerTouchCounts[player] + 1
 
-				-- Add player to queue
-				local added = addPlayerToQueue(player, queueType)
+				-- Cancel any pending leave timer
+				if LeaveTimers[player] then
+					LeaveTimers[player]:Cancel()
+					LeaveTimers[player] = nil
+				end
 
-				if added then
-					-- Start countdown if this is the first player or queue is full
-					if #Queues[queueType] == QueueConfig[queueType].MaxPlayers then
-						if not ActiveCountdowns[queueType] then
-							task.spawn(function()
-								startCountdown(queueType)
-							end)
-						end
-					elseif #Queues[queueType] == 1 then
-						-- Start countdown even with one player
-						if not ActiveCountdowns[queueType] then
-							task.spawn(function()
-								startCountdown(queueType)
-							end)
+				-- Only add to queue if not already in this queue
+				if PlayersInQueue[player] ~= queueType then
+					-- Debounce check
+					if PlayerDebounce[player] then
+						return
+					end
+					PlayerDebounce[player] = true
+
+					-- Add player to queue
+					local added = addPlayerToQueue(player, queueType)
+
+					if added then
+						-- Start countdown if this is the first player or queue is full
+						if #Queues[queueType] == QueueConfig[queueType].MaxPlayers then
+							if not ActiveCountdowns[queueType] then
+								task.spawn(function()
+									startCountdown(queueType)
+								end)
+							end
+						elseif #Queues[queueType] == 1 then
+							-- Start countdown even with one player
+							if not ActiveCountdowns[queueType] then
+								task.spawn(function()
+									startCountdown(queueType)
+								end)
+							end
 						end
 					end
-				end
 
-				-- Reset debounce after short delay
-				task.delay(0.5, function()
-					PlayerDebounce[player] = nil
-				end)
+					-- Reset debounce after delay
+					task.delay(1, function()
+						PlayerDebounce[player] = nil
+					end)
+				end
 			end
 		end
 	end)
@@ -240,8 +260,33 @@ local function setupPad(pad, queueType)
 		local humanoid = hit.Parent:FindFirstChild("Humanoid")
 		if humanoid then
 			local player = Players:GetPlayerFromCharacter(hit.Parent)
-			if player and PlayersInQueue[player] == queueType then
-				removePlayerFromQueues(player, true)
+			if player then
+				-- Decrease touch count
+				if playerTouchCounts[player] then
+					playerTouchCounts[player] = playerTouchCounts[player] - 1
+
+					-- Only remove from queue if no parts are touching
+					if playerTouchCounts[player] <= 0 then
+						playerTouchCounts[player] = nil
+
+						-- Only remove if in this queue
+						if PlayersInQueue[player] == queueType then
+							-- Cancel existing timer if any
+							if LeaveTimers[player] then
+								LeaveTimers[player]:Cancel()
+							end
+
+							-- Create a delayed leave timer (1 second delay)
+							LeaveTimers[player] = task.delay(1, function()
+								-- Double-check they're still not on the pad
+								if PlayersInQueue[player] == queueType and not playerTouchCounts[player] then
+									removePlayerFromQueues(player, true)
+								end
+								LeaveTimers[player] = nil
+							end)
+						end
+					end
+				end
 			end
 		end
 	end)
