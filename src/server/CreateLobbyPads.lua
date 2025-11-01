@@ -31,19 +31,19 @@ local function createLobbyPads()
 			Name = "SoloPad",
 			Color = Color3.fromRGB(0, 170, 255), -- Blue
 			Position = Vector3.new(0, 1, 0),
-			Text = "SOLO\n[1 PLAYER]"
+			Text = "SOLO"
 		},
 		{
 			Name = "DuoPad",
 			Color = Color3.fromRGB(0, 255, 0), -- Green
 			Position = Vector3.new(15, 1, 0),
-			Text = "DUO\n[2 PLAYERS]"
+			Text = "DUO"
 		},
 		{
 			Name = "SquadPad",
 			Color = Color3.fromRGB(255, 170, 0), -- Orange
 			Position = Vector3.new(30, 1, 0),
-			Text = "SQUAD\n[4 PLAYERS]"
+			Text = "SQUAD"
 		}
 	}
 
@@ -66,11 +66,11 @@ local function createLobbyPads()
 		pad.Color = padConfig.Color
 		pad.Parent = lobby
 
-		-- Create text billboard
+		-- Create queue type label billboard
 		local billboard = Instance.new("BillboardGui")
 		billboard.Name = "PadLabel"
-		billboard.Size = UDim2.new(0, 200, 0, 100)
-		billboard.StudsOffset = Vector3.new(0, 3, 0)
+		billboard.Size = UDim2.new(0, 200, 0, 60)
+		billboard.StudsOffset = Vector3.new(0, 2.5, 0)
 		billboard.AlwaysOnTop = true
 		billboard.Parent = pad
 
@@ -79,10 +79,15 @@ local function createLobbyPads()
 		textLabel.BackgroundTransparency = 1
 		textLabel.Text = padConfig.Text
 		textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		textLabel.TextSize = 24
-		textLabel.Font = Enum.Font.GothamBold
-		textLabel.TextStrokeTransparency = 0.5
+		textLabel.TextSize = 28
+		textLabel.Font = Enum.Font.FredokaOne
 		textLabel.Parent = billboard
+
+		-- Add text stroke for cartoony effect
+		local textStroke = Instance.new("UIStroke")
+		textStroke.Color = Color3.fromRGB(0, 0, 0)
+		textStroke.Thickness = 3
+		textStroke.Parent = textLabel
 
 		print("Created " .. padConfig.Name)
 	end

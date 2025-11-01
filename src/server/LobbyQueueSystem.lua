@@ -53,6 +53,7 @@ local PlayersInQueue = {} -- Tracks which queue each player is in
 local PlayerDebounce = {} -- Debounce table to prevent spam
 local PlayerTouchingPad = {} -- Tracks if player is currently on a pad
 local LeaveTimers = {} -- Timers for delayed queue leaving
+local PadCounters = {} -- Store billboard GUI references for each pad
 
 -- Remote events for client communication
 local RemoteEvents = Instance.new("Folder")
@@ -71,6 +72,16 @@ local QueueLeaveEvent = Instance.new("RemoteEvent")
 QueueLeaveEvent.Name = "QueueLeave"
 QueueLeaveEvent.Parent = RemoteEvents
 
+-- Function to update pad counter display
+local function updatePadCounter(queueType)
+	local counter = PadCounters[queueType]
+	if counter then
+		local currentPlayers = #Queues[queueType]
+		local maxPlayers = QueueConfig[queueType].MaxPlayers
+		counter.Text = currentPlayers .. "/" .. maxPlayers .. " PLAYERS"
+	end
+end
+
 -- Helper function to remove player from all queues
 local function removePlayerFromQueues(player, notifyClient)
 	if notifyClient == nil then notifyClient = true end
@@ -85,6 +96,9 @@ local function removePlayerFromQueues(player, notifyClient)
 				if notifyClient then
 					QueueLeaveEvent:FireClient(player)
 				end
+
+				-- Update pad counter after removing player
+				updatePadCounter(queueType)
 				break
 			end
 		end
@@ -110,6 +124,9 @@ local function addPlayerToQueue(player, queueType)
 
 	-- Notify player they joined queue
 	QueueJoinEvent:FireClient(player, queueType, #Queues[queueType], QueueConfig[queueType].MaxPlayers)
+
+	-- Update pad counter
+	updatePadCounter(queueType)
 
 	return true
 end
@@ -183,6 +200,9 @@ local function startCountdown(queueType)
 	for _, player in ipairs(playersToTeleport) do
 		PlayersInQueue[player] = nil
 	end
+
+	-- Update pad counter to show 0 players
+	updatePadCounter(queueType)
 end
 
 -- Setup touch detection for a pad
@@ -195,6 +215,33 @@ local function setupPad(pad, queueType)
 	-- Set pad color
 	pad.BrickColor = BrickColor.new(QueueConfig[queueType].Color)
 	pad.Material = Enum.Material.Neon
+
+	-- Create player counter billboard
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "PlayerCounter"
+	billboard.Size = UDim2.new(0, 200, 0, 80)
+	billboard.StudsOffset = Vector3.new(0, 4, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = pad
+
+	local counterLabel = Instance.new("TextLabel")
+	counterLabel.Name = "CounterLabel"
+	counterLabel.Size = UDim2.new(1, 0, 1, 0)
+	counterLabel.BackgroundTransparency = 1
+	counterLabel.Text = "0/" .. QueueConfig[queueType].MaxPlayers .. " PLAYERS"
+	counterLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	counterLabel.TextSize = 32
+	counterLabel.Font = Enum.Font.FredokaOne
+	counterLabel.Parent = billboard
+
+	-- Add text stroke for better visibility
+	local counterStroke = Instance.new("UIStroke")
+	counterStroke.Color = Color3.fromRGB(0, 0, 0)
+	counterStroke.Thickness = 4
+	counterStroke.Parent = counterLabel
+
+	-- Store reference to counter
+	PadCounters[queueType] = counterLabel
 
 	-- Store players currently on this pad
 	local playersOnPad = {}
@@ -284,19 +331,8 @@ local function setupPad(pad, queueType)
 
 					-- Only remove if in this queue
 					if PlayersInQueue[player] == queueType then
-						-- Cancel existing timer if any
-						if LeaveTimers[player] then
-							task.cancel(LeaveTimers[player])
-						end
-
-						-- Create a delayed leave timer (0.5 second delay)
-						LeaveTimers[player] = task.delay(0.5, function()
-							-- Double-check they're still not on the pad
-							if PlayersInQueue[player] == queueType and not playersOnPad[player] then
-								removePlayerFromQueues(player, true)
-							end
-							LeaveTimers[player] = nil
-						end)
+						-- Remove immediately (no delay)
+						removePlayerFromQueues(player, true)
 					end
 				end
 			end
