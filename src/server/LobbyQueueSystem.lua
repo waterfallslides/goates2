@@ -79,6 +79,9 @@ local function updatePadCounter(queueType)
 		local currentPlayers = #Queues[queueType]
 		local maxPlayers = QueueConfig[queueType].MaxPlayers
 		counter.Text = currentPlayers .. "/" .. maxPlayers .. " PLAYERS"
+		print("[Queue] Updated " .. queueType .. " counter: " .. counter.Text)
+	else
+		warn("[Queue] Counter not found for " .. queueType)
 	end
 end
 
@@ -216,12 +219,19 @@ local function setupPad(pad, queueType)
 	pad.BrickColor = BrickColor.new(QueueConfig[queueType].Color)
 	pad.Material = Enum.Material.Neon
 
+	-- Remove existing PlayerCounter if it exists
+	local existingCounter = pad:FindFirstChild("PlayerCounter")
+	if existingCounter then
+		existingCounter:Destroy()
+	end
+
 	-- Create player counter billboard
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "PlayerCounter"
-	billboard.Size = UDim2.new(0, 200, 0, 80)
-	billboard.StudsOffset = Vector3.new(0, 4, 0)
+	billboard.Size = UDim2.new(0, 250, 0, 80)
+	billboard.StudsOffset = Vector3.new(0, 5, 0)
 	billboard.AlwaysOnTop = true
+	billboard.Adornee = pad
 	billboard.Parent = pad
 
 	local counterLabel = Instance.new("TextLabel")
@@ -230,18 +240,21 @@ local function setupPad(pad, queueType)
 	counterLabel.BackgroundTransparency = 1
 	counterLabel.Text = "0/" .. QueueConfig[queueType].MaxPlayers .. " PLAYERS"
 	counterLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	counterLabel.TextSize = 32
+	counterLabel.TextSize = 36
 	counterLabel.Font = Enum.Font.FredokaOne
+	counterLabel.TextScaled = false
 	counterLabel.Parent = billboard
 
 	-- Add text stroke for better visibility
 	local counterStroke = Instance.new("UIStroke")
 	counterStroke.Color = Color3.fromRGB(0, 0, 0)
-	counterStroke.Thickness = 4
+	counterStroke.Thickness = 5
 	counterStroke.Parent = counterLabel
 
 	-- Store reference to counter
 	PadCounters[queueType] = counterLabel
+
+	print("[Queue] Created player counter for " .. queueType .. " - Initial text: " .. counterLabel.Text)
 
 	-- Store players currently on this pad
 	local playersOnPad = {}
@@ -320,7 +333,31 @@ local function setupPad(pad, queueType)
 		end
 	end)
 
-	-- Continuously check if players are still on pad
+	-- TouchEnded detection for instant GUI removal
+	pad.TouchEnded:Connect(function(hit)
+		local character = hit.Parent
+		local humanoid = character:FindFirstChild("Humanoid")
+		if humanoid then
+			local player = Players:GetPlayerFromCharacter(character)
+			if player then
+				-- Mark that a body part left the pad
+				task.delay(0.1, function()
+					-- Check if player is actually off the pad
+					if not isPlayerOnPad(player) then
+						playersOnPad[player] = nil
+
+						-- Only remove if in this queue
+						if PlayersInQueue[player] == queueType then
+							-- Remove immediately
+							removePlayerFromQueues(player, true)
+						end
+					end
+				end)
+			end
+		end
+	end)
+
+	-- Continuously check if players are still on pad (backup)
 	task.spawn(function()
 		while true do
 			task.wait(0.5) -- Check every half second
