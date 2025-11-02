@@ -243,14 +243,14 @@ function GameHUD:CreateHungerBar()
     hungerText.Parent = container
 end
 
--- Create coins display (top right, survival style)
+-- Create coins display (bottom left, above health bar)
 function GameHUD:CreateCoinsDisplay()
     -- Container
     local container = Instance.new("Frame")
     container.Name = "CoinsContainer"
-    container.Size = UDim2.new(0, 150, 0, 40)
-    container.AnchorPoint = Vector2.new(1, 0)
-    container.Position = UDim2.new(1, -20, 0, 20)
+    container.Size = UDim2.new(0, 300, 0, 40)
+    container.Position = UDim2.new(0, 20, 1, -135)
+    container.AnchorPoint = Vector2.new(0, 1)
     container.BackgroundColor3 = COLORS.Background
     container.BorderSizePixel = 0
     container.Parent = screenGui
@@ -290,13 +290,14 @@ function GameHUD:CreateCoinsDisplay()
     coinsLabel.Parent = container
 end
 
--- Create day and timer display (top left, combined)
+-- Create day and timer display (top center)
 function GameHUD:CreateDayLabel()
     -- Container for day/timer info
     local container = Instance.new("Frame")
     container.Name = "DayTimerContainer"
-    container.Size = UDim2.new(0, 200, 0, 80)
-    container.Position = UDim2.new(0, 20, 0, 20)
+    container.Size = UDim2.new(0, 220, 0, 80)
+    container.AnchorPoint = Vector2.new(0.5, 0)
+    container.Position = UDim2.new(0.5, 0, 0, 20)
     container.BackgroundColor3 = COLORS.Background
     container.BorderSizePixel = 0
     container.Parent = screenGui
@@ -320,9 +321,9 @@ function GameHUD:CreateDayLabel()
     dayLabel.BackgroundTransparency = 1
     dayLabel.Text = "DAY 1"
     dayLabel.TextColor3 = COLORS.Day
-    dayLabel.TextSize = 22
+    dayLabel.TextSize = 24
     dayLabel.Font = Enum.Font.GothamBold
-    dayLabel.TextXAlignment = Enum.TextXAlignment.Left
+    dayLabel.TextXAlignment = Enum.TextXAlignment.Center
     dayLabel.TextStrokeTransparency = 0.7
     dayLabel.Parent = container
 
@@ -336,7 +337,7 @@ function GameHUD:CreateDayLabel()
     phaseLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
     phaseLabel.TextSize = 12
     phaseLabel.Font = Enum.Font.Gotham
-    phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+    phaseLabel.TextXAlignment = Enum.TextXAlignment.Center
     phaseLabel.TextStrokeTransparency = 0.7
     phaseLabel.Parent = container
 
@@ -350,7 +351,7 @@ function GameHUD:CreateDayLabel()
     timerLabel.TextColor3 = Color3.new(1, 1, 1)
     timerLabel.TextSize = 20
     timerLabel.Font = Enum.Font.GothamBold
-    timerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    timerLabel.TextXAlignment = Enum.TextXAlignment.Center
     timerLabel.TextStrokeTransparency = 0.7
     timerLabel.Parent = container
 end

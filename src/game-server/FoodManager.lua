@@ -142,58 +142,31 @@ end
 
 -- Spawn a single food item
 function FoodManager:SpawnFoodItem(foodType)
+    -- Check if model exists
+    if not self.FoodModels[foodType] then
+        warn("[FoodManager] No model found for " .. foodType .. ", skipping spawn")
+        return nil
+    end
+
     -- Get random spawn position
     local position = self:GetRandomSpawnPosition(CONFIG.RARITY[foodType])
 
-    local food
+    -- Clone existing model
+    local food = self.FoodModels[foodType]:Clone()
+    food.Name = foodType
 
-    -- Try to clone existing model
-    if self.FoodModels[foodType] then
-        food = self.FoodModels[foodType]:Clone()
-        food.Name = foodType
-
-        -- Position the cloned model
-        if food:IsA("Model") and food.PrimaryPart then
-            food:SetPrimaryPartCFrame(CFrame.new(position))
-        elseif food:IsA("Model") then
-            -- If no PrimaryPart, try to find the main part
-            local mainPart = food:FindFirstChildWhichIsA("BasePart")
-            if mainPart then
-                food:MoveTo(position)
-            end
-        elseif food:IsA("BasePart") then
-            food.Position = position
-            food.Anchored = true
+    -- Position the cloned model
+    if food:IsA("Model") and food.PrimaryPart then
+        food:SetPrimaryPartCFrame(CFrame.new(position))
+    elseif food:IsA("Model") then
+        -- If no PrimaryPart, try to find the main part
+        local mainPart = food:FindFirstChildWhichIsA("BasePart")
+        if mainPart then
+            food:MoveTo(position)
         end
-    else
-        -- Fallback: Create simple part if model not found
-        warn("[FoodManager] No model found for " .. foodType .. ", using fallback")
-        food = Instance.new("Part")
-        food.Name = foodType
-        food.Size = Vector3.new(2, 2, 2)
+    elseif food:IsA("BasePart") then
         food.Position = position
         food.Anchored = true
-        food.CanCollide = false
-        food.Material = Enum.Material.SmoothPlastic
-        food.Shape = Enum.PartType.Ball
-        food.BrickColor = BrickColor.Random()
-
-        -- Add label for fallback
-        local billboardGui = Instance.new("BillboardGui")
-        billboardGui.Size = UDim2.new(0, 100, 0, 40)
-        billboardGui.StudsOffset = Vector3.new(0, 2, 0)
-        billboardGui.AlwaysOnTop = true
-        billboardGui.Parent = food
-
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.BackgroundTransparency = 1
-        textLabel.Text = foodType
-        textLabel.TextColor3 = Color3.new(1, 1, 1)
-        textLabel.TextScaled = true
-        textLabel.Font = Enum.Font.GothamBold
-        textLabel.TextStrokeTransparency = 0.5
-        textLabel.Parent = billboardGui
     end
 
     -- Add proximity prompt for collection (works on both Models and Parts)

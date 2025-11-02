@@ -21,7 +21,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local PathfindingService = game:GetService("PathfindingService")
 local RunService = game:GetService("RunService")
 
--- Monster data
+-- Monster data (stats only, models come from storage)
 local MONSTER_DATA = {
     BasicZombie = {
         Name = "Basic Zombie",
@@ -29,8 +29,6 @@ local MONSTER_DATA = {
         Damage = 10,
         AttackSpeed = 1, -- Attacks per second
         WalkSpeed = 12,
-        Color = Color3.fromRGB(100, 150, 100),
-        Size = Vector3.new(2, 5, 2),
         CoinDrop = 10,
         StructureDamage = 8,
     },
@@ -40,8 +38,6 @@ local MONSTER_DATA = {
         Damage = 8,
         AttackSpeed = 1.5,
         WalkSpeed = 22,
-        Color = Color3.fromRGB(150, 100, 100),
-        Size = Vector3.new(1.8, 5, 1.8),
         CoinDrop = 15,
         StructureDamage = 6,
         UnlockDay = 4,
@@ -52,8 +48,6 @@ local MONSTER_DATA = {
         Damage = 20,
         AttackSpeed = 0.7,
         WalkSpeed = 10,
-        Color = Color3.fromRGB(80, 80, 120),
-        Size = Vector3.new(3, 6, 3),
         CoinDrop = 25,
         StructureDamage = 25,
         UnlockDay = 7,
@@ -64,8 +58,6 @@ local MONSTER_DATA = {
         Damage = 12,
         AttackSpeed = 1.2,
         WalkSpeed = 16,
-        Color = Color3.fromRGB(120, 80, 80),
-        Size = Vector3.new(2, 2, 2),
         CoinDrop = 15,
         StructureDamage = 10,
         UnlockDay = 10,
@@ -76,17 +68,21 @@ local MONSTER_DATA = {
         Damage = 30,
         AttackSpeed = 1,
         WalkSpeed = 18,
-        Color = Color3.fromRGB(200, 50, 50),
-        Size = Vector3.new(4, 8, 4),
         CoinDrop = 150, -- Divided among participants
         StructureDamage = 50,
     }
+}
+
+-- Configuration
+local CONFIG = {
+    MODELS_FOLDER_NAME = "MonsterModels", -- Look for this folder in ServerStorage or ReplicatedStorage
 }
 
 -- State
 MonsterManager.Monsters = {} -- Active monsters
 MonsterManager.GameManager = nil
 MonsterManager.BunkerManager = nil
+MonsterManager.MonsterModels = {} -- Cache of monster models
 
 -- Initialize
 function MonsterManager:Initialize(gameManager)
@@ -99,6 +95,42 @@ function MonsterManager:Initialize(gameManager)
         monstersFolder.Name = "Monsters"
         monstersFolder.Parent = workspace
     end
+
+    -- Load monster models
+    self:LoadMonsterModels()
+end
+
+-- Load monster models from storage
+function MonsterManager:LoadMonsterModels()
+    -- Try ServerStorage first
+    local modelsFolder = ServerStorage:FindFirstChild(CONFIG.MODELS_FOLDER_NAME)
+
+    -- If not in ServerStorage, try ReplicatedStorage
+    if not modelsFolder then
+        modelsFolder = game:GetService("ReplicatedStorage"):FindFirstChild(CONFIG.MODELS_FOLDER_NAME)
+    end
+
+    if not modelsFolder then
+        warn("[MonsterManager] Monster models folder '" .. CONFIG.MODELS_FOLDER_NAME .. "' not found!")
+        warn("[MonsterManager] Please create a folder named '" .. CONFIG.MODELS_FOLDER_NAME .. "' in ServerStorage or ReplicatedStorage")
+        warn("[MonsterManager] Expected models: BasicZombie, FastZombie, TankZombie, Crawler, Boss")
+        return
+    end
+
+    -- Load each monster type model
+    for monsterType, _ in pairs(MONSTER_DATA) do
+        local model = modelsFolder:FindFirstChild(monsterType)
+        if model then
+            self.MonsterModels[monsterType] = model
+            print("[MonsterManager] Loaded model for: " .. monsterType)
+        else
+            warn("[MonsterManager] Model not found for: " .. monsterType)
+        end
+    end
+
+    local count = 0
+    for _ in pairs(self.MonsterModels) do count = count + 1 end
+    print("[MonsterManager] Loaded " .. count .. " monster models")
 end
 
 -- Spawn monsters for the night
@@ -181,11 +213,21 @@ function MonsterManager:SpawnMonster(monsterType, day, target)
     local scaledDamage = data.Damage * (1 + day * 0.10)
 
     -- Create monster model
-    local monster = self:CreateMonsterModel(data, scaledHP)
+    local monster = self:CreateMonsterModel(monsterType, data, scaledHP)
+
+    -- Check if model was created successfully
+    if not monster then
+        warn("[MonsterManager] Failed to create monster:", monsterType)
+        return nil
+    end
 
     -- Spawn position (random around map perimeter)
     local spawnPos = self:GetPerimeterSpawnPosition()
-    monster:SetPrimaryPartCFrame(CFrame.new(spawnPos))
+    if monster.PrimaryPart then
+        monster:SetPrimaryPartCFrame(CFrame.new(spawnPos))
+    else
+        monster:MoveTo(spawnPos)
+    end
 
     -- Add to world
     monster.Parent = workspace.Monsters
@@ -231,12 +273,23 @@ function MonsterManager:SpawnBoss(day)
     end
 
     -- Create boss
-    local boss = self:CreateMonsterModel(data, baseHP)
+    local boss = self:CreateMonsterModel("Boss", data, baseHP)
+
+    -- Check if boss was created successfully
+    if not boss then
+        warn("[MonsterManager] Failed to create Boss, skipping")
+        return
+    end
+
     boss.Name = "BOSS"
 
     -- Spawn in center of map
     local spawnPos = self:GetCenterPosition()
-    boss:SetPrimaryPartCFrame(CFrame.new(spawnPos + Vector3.new(0, 10, 0)))
+    if boss.PrimaryPart then
+        boss:SetPrimaryPartCFrame(CFrame.new(spawnPos + Vector3.new(0, 10, 0)))
+    else
+        boss:MoveTo(spawnPos + Vector3.new(0, 10, 0))
+    end
 
     boss.Parent = workspace.Monsters
 
@@ -262,56 +315,53 @@ function MonsterManager:SpawnBoss(day)
     print("[MonsterManager] BOSS SPAWNED with " .. baseHP .. " HP!")
 end
 
--- Create monster model
-function MonsterManager:CreateMonsterModel(data, health)
-    local model = Instance.new("Model")
+-- Create monster model from loaded model
+function MonsterManager:CreateMonsterModel(monsterType, data, health)
+    -- Check if model exists
+    if not self.MonsterModels[monsterType] then
+        warn("[MonsterManager] No model found for " .. monsterType .. ", cannot spawn")
+        return nil
+    end
+
+    -- Clone the model
+    local model = self.MonsterModels[monsterType]:Clone()
     model.Name = data.Name
 
-    -- Main body part
-    local body = Instance.new("Part")
-    body.Name = "Body"
-    body.Size = data.Size
-    body.Color = data.Color
-    body.Material = Enum.Material.SmoothPlastic
-    body.Anchored = false
-    body.CanCollide = true
-    body.Parent = model
+    -- Find or create humanoid
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    if not humanoid then
+        humanoid = Instance.new("Humanoid")
+        humanoid.Parent = model
+    end
 
-    -- Create humanoid
-    local humanoid = Instance.new("Humanoid")
+    -- Set humanoid properties
     humanoid.MaxHealth = health
     humanoid.Health = health
     humanoid.WalkSpeed = data.WalkSpeed
     humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-    humanoid.Parent = model
 
-    -- Add health bar
-    local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Size = UDim2.new(0, 100, 0, 20)
-    billboardGui.StudsOffset = Vector3.new(0, data.Size.Y / 2 + 1, 0)
-    billboardGui.AlwaysOnTop = true
-    billboardGui.Parent = body
+    -- Add health bar (find a good place to attach it)
+    local attachPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+    if attachPart then
+        local billboardGui = Instance.new("BillboardGui")
+        billboardGui.Size = UDim2.new(0, 100, 0, 20)
+        billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+        billboardGui.AlwaysOnTop = true
+        billboardGui.Parent = attachPart
 
-    local healthBarBg = Instance.new("Frame")
-    healthBarBg.Size = UDim2.new(1, 0, 1, 0)
-    healthBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    healthBarBg.BorderSizePixel = 0
-    healthBarBg.Parent = billboardGui
+        local healthBarBg = Instance.new("Frame")
+        healthBarBg.Size = UDim2.new(1, 0, 1, 0)
+        healthBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        healthBarBg.BorderSizePixel = 0
+        healthBarBg.Parent = billboardGui
 
-    local healthBar = Instance.new("Frame")
-    healthBar.Name = "HealthBar"
-    healthBar.Size = UDim2.new(1, 0, 1, 0)
-    healthBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-    healthBar.BorderSizePixel = 0
-    healthBar.Parent = healthBarBg
-
-    -- Set primary part
-    model.PrimaryPart = body
-
-    -- Add simple animations (bobbing)
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
-    bodyVelocity.Parent = body
+        local healthBar = Instance.new("Frame")
+        healthBar.Name = "HealthBar"
+        healthBar.Size = UDim2.new(1, 0, 1, 0)
+        healthBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        healthBar.BorderSizePixel = 0
+        healthBar.Parent = healthBarBg
+    end
 
     return model
 end
@@ -453,13 +503,20 @@ end
 function MonsterManager:DamageMonster(monsterData, damage, attacker)
     monsterData.Health = math.max(0, monsterData.Health - damage)
 
-    -- Update health bar
-    local healthBar = monsterData.Model.PrimaryPart:FindFirstChild("BillboardGui")
-    if healthBar then
-        local bar = healthBar:FindFirstChild("Frame"):FindFirstChild("HealthBar")
-        if bar then
-            local healthPercent = monsterData.Health / monsterData.MaxHealth
-            bar.Size = UDim2.new(healthPercent, 0, 1, 0)
+    -- Update health bar (find it on any part)
+    local healthBarFound = false
+    for _, descendant in ipairs(monsterData.Model:GetDescendants()) do
+        if descendant:IsA("BillboardGui") and descendant.Name == "BillboardGui" then
+            local frame = descendant:FindFirstChild("Frame")
+            if frame then
+                local bar = frame:FindFirstChild("HealthBar")
+                if bar then
+                    local healthPercent = monsterData.Health / monsterData.MaxHealth
+                    bar.Size = UDim2.new(healthPercent, 0, 1, 0)
+                    healthBarFound = true
+                    break
+                end
+            end
         end
     end
 
