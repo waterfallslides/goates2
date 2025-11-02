@@ -7,7 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Load food configuration
-local FoodConfig = require(script.Parent.Parent.shared.FoodConfig)
+local FoodConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FoodConfig"))
 
 local PlayerInventory = {}
 PlayerInventory.__index = PlayerInventory

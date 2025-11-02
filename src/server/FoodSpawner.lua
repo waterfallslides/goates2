@@ -8,7 +8,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
 -- Load food configuration
-local FoodConfig = require(script.Parent.Parent.shared.FoodConfig)
+local FoodConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FoodConfig"))
 
 local FoodSpawner = {}
 FoodSpawner.__index = FoodSpawner
