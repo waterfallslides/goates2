@@ -185,9 +185,15 @@ function FoodSpawner:ConfigureFoodItem(foodItem, foodType)
         sparkle.Parent = part
     end
 
-    -- Set attributes for identification (on the model itself)
+    -- Set attributes for identification (on the model itself AND primary part)
     foodItem:SetAttribute("FoodType", foodType)
     foodItem:SetAttribute("Collected", false)
+
+    -- Also set on primary part for easier access
+    if mainPart then
+        mainPart:SetAttribute("FoodType", foodType)
+        mainPart:SetAttribute("Collected", false)
+    end
 
     -- Ensure primary part exists
     if not mainPart or not foodItem.PrimaryPart then
@@ -281,9 +287,9 @@ function FoodSpawner:GetRandomSpawnPosition()
     local maxAttempts = 20
 
     while attempts < maxAttempts do
-        -- Generate random X and Z with more spread
-        local randomX = math.random(-halfSize, halfSize)
-        local randomZ = math.random(-halfSize, halfSize)
+        -- Generate random X and Z with decimal precision for better distribution
+        local randomX = math.random(-halfSize * 100, halfSize * 100) / 100
+        local randomZ = math.random(-halfSize * 100, halfSize * 100) / 100
 
         local position = Vector3.new(
             self.SpawnAreaCenter.X + randomX,
@@ -304,8 +310,8 @@ function FoodSpawner:GetRandomSpawnPosition()
     end
 
     -- If we couldn't find a good position, just return a random one
-    local randomX = math.random(-halfSize, halfSize)
-    local randomZ = math.random(-halfSize, halfSize)
+    local randomX = math.random(-halfSize * 100, halfSize * 100) / 100
+    local randomZ = math.random(-halfSize * 100, halfSize * 100) / 100
     local fallbackPos = Vector3.new(
         self.SpawnAreaCenter.X + randomX,
         self.SpawnAreaCenter.Y,
@@ -377,6 +383,14 @@ end
 function FoodSpawner:RemoveFood(foodItem)
     if foodItem and foodItem:GetAttribute("Collected") ~= true then
         foodItem:SetAttribute("Collected", true)
+
+        -- Also mark primary part as collected
+        if foodItem:IsA("Model") and foodItem.PrimaryPart then
+            foodItem.PrimaryPart:SetAttribute("Collected", true)
+        elseif foodItem:IsA("BasePart") then
+            foodItem:SetAttribute("Collected", true)
+        end
+
         self:ReturnToPool(foodItem)
         return true
     end

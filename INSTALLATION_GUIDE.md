@@ -73,6 +73,14 @@ In **StarterPlayer/StarterPlayerScripts**:
    - Name it: `InventoryUI`
    - Paste code from `InventoryUI.lua`
 
+3. **Right-click** → Insert Object → **LocalScript**
+   - Name it: `InventoryToolSystem`
+   - Paste code from `InventoryToolSystem.lua`
+
+4. **Right-click** → Insert Object → **LocalScript**
+   - Name it: `InventoryKeyHandler`
+   - Paste code from `InventoryKeyHandler.lua`
+
 ---
 
 ## ✅ Verification Checklist
@@ -94,7 +102,9 @@ ReplicatedStorage
 StarterPlayer
 └── StarterPlayerScripts
     ├── FoodCollectionHandler (LocalScript) 🎮
-    └── InventoryUI (LocalScript) 🎮
+    ├── InventoryUI (LocalScript) 🎮
+    ├── InventoryToolSystem (LocalScript) 🎮
+    └── InventoryKeyHandler (LocalScript) 🎮
 ```
 
 ---
@@ -148,6 +158,8 @@ You should see:
 | FoodConfig | 📦 ModuleScript | ReplicatedStorage/Shared |
 | FoodCollectionHandler | 🎮 LocalScript | StarterPlayerScripts |
 | InventoryUI | 🎮 LocalScript | StarterPlayerScripts |
+| InventoryToolSystem | 🎮 LocalScript | StarterPlayerScripts |
+| InventoryKeyHandler | 🎮 LocalScript | StarterPlayerScripts |
 
 ---
 

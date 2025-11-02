@@ -25,10 +25,7 @@ local TimeUpdateEvent = eventsFolder:WaitForChild("TimeUpdate", 5)
 -- Get FoodConfig for icons
 local FoodConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FoodConfig"))
 
--- Get ConsumeFood RemoteFunction
-local ConsumeFoodFunction = ReplicatedStorage:WaitForChild("ConsumeFood", 10)
-
--- Track equipped item
+-- Track equipped item (for visual display only - actual equipping handled by InventoryToolSystem)
 local equippedSlot = nil
 
 -- Create main ScreenGui
@@ -272,7 +269,7 @@ local function updateStats(stats)
     end
 end
 
--- Function to equip/unequip or consume food
+-- Function to show which slot is selected (visual only)
 local function handleSlotClick(slotIndex)
     local slot = inventorySlots[slotIndex]
 
@@ -281,32 +278,20 @@ local function handleSlotClick(slotIndex)
         return
     end
 
-    -- If this slot is already equipped, consume the food
+    -- Toggle selection
     if equippedSlot == slotIndex then
-        print("[InventoryUI] Consuming", slot.FoodType)
-
-        if ConsumeFoodFunction then
-            local success = pcall(function()
-                ConsumeFoodFunction:InvokeServer(slot.FoodType)
-            end)
-
-            if success then
-                -- Unequip after consuming
-                slot.EquippedIndicator.Visible = false
-                equippedSlot = nil
-            end
-        end
+        -- Unselect
+        slot.EquippedIndicator.Visible = false
+        equippedSlot = nil
     else
-        -- Unequip previous slot
+        -- Unselect previous
         if equippedSlot then
             inventorySlots[equippedSlot].EquippedIndicator.Visible = false
         end
 
-        -- Equip this slot
+        -- Select this slot
         equippedSlot = slotIndex
         slot.EquippedIndicator.Visible = true
-
-        print("[InventoryUI] Equipped", slot.FoodType)
     end
 end
 
