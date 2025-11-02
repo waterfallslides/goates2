@@ -29,18 +29,26 @@ That's it! The system will automatically find and use your models when spawning 
 
 ## Important Model Requirements
 
-### ✅ Each model MUST have:
+### ✅ Your food can be:
 
-1. **A PrimaryPart set** (if it's a Model)
-   - Right-click your model in Explorer
-   - Click "Set PrimaryPart"
+1. **Single Part** - Just a Part or MeshPart (easiest!)
+2. **Model** - Multiple parts grouped together
+
+### ✅ Requirements:
+
+1. **If it's a Model:**
+   - Set a PrimaryPart (right-click model → Set PrimaryPart)
    - Choose the main/center part
 
-2. **CanCollide = true** on the PrimaryPart
-   - So food doesn't fall through the ground
+2. **If it's a single Part/MeshPart:**
+   - No PrimaryPart needed! Just add it directly
+   - Make sure `CanCollide = true`
+   - Make sure `Anchored = false`
 
-3. **Anchored = false** on all parts
-   - So food can fall naturally
+3. **All food:**
+   - Will spawn on the ground automatically (uses raycast)
+   - Should have `CanCollide = true` to not fall through floor
+   - Should have `Anchored = false` to allow physics
 
 ### ⚠️ DO NOT add these (auto-added by system):
 - ClickDetector ❌
@@ -57,12 +65,18 @@ The system adds these automatically!
 ```
 ReplicatedStorage
 └── FoodModels (Folder you create)
-    ├── Bread (Your Model or Part)
-    ├── Apple (Your Model or Part)
-    ├── CookedMeat (Your Model or Part)
-    ├── CannedFood (Your Model or Part)
-    └── WaterBottle (Your Model or Part)
+    ├── Bread (MeshPart, Part, or Model)
+    ├── Apple (MeshPart, Part, or Model)
+    ├── CookedMeat (MeshPart, Part, or Model)
+    ├── CannedFood (MeshPart, Part, or Model)
+    └── WaterBottle (MeshPart, Part, or Model)
 ```
+
+**Works with:**
+- ✅ Single MeshPart (most common for imported models)
+- ✅ Single Part
+- ✅ Model with multiple parts
+- ✅ Unions
 
 ---
 
@@ -140,16 +154,26 @@ If you have models from Blender or the Roblox Toolbox:
 - **Solution:** Create folder named exactly `FoodModels` (case-sensitive) in ReplicatedStorage
 
 ### Food doesn't spawn / invisible
-- **Solution:** Make sure model is named exactly: `Bread`, `Apple`, `CookedMeat`, `CannedFood`, or `WaterBottle`
+- **Solution:** Make sure model/part is named exactly: `Bread`, `Apple`, `CookedMeat`, `CannedFood`, or `WaterBottle`
 
-### Can't click food
-- **Solution:** Set a PrimaryPart on your model (right-click model → Set PrimaryPart)
+### "Missing PrimaryPart" warning
+- **If using a Model:** Right-click model → Set PrimaryPart → choose main part
+- **If using a single MeshPart/Part:** This is fine! System handles it automatically
 
 ### Food falls through floor
-- **Solution:** Set `CanCollide = true` on the PrimaryPart
+- **Solution:** Set `CanCollide = true` on your part/MeshPart
+- **Note:** System uses raycast to find ground, spawns 2 studs above it
+
+### Food spawns in the air
+- **This is normal!** Food falls to the ground naturally
+- Make sure your map has a floor/terrain for food to land on
+
+### Food spawns too close together
+- System now uses 10 stud minimum spacing
+- Increase `MIN_SPAWN_DISTANCE` in FoodSpawner.lua if needed
 
 ### Wrong food spawns
-- **Solution:** Check that each model has the correct unique name
+- **Solution:** Check that each model/part has the correct unique name
 
 ---
 

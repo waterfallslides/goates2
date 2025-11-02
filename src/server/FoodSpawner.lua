@@ -17,7 +17,8 @@ FoodSpawner.__index = FoodSpawner
 local POOL_SIZE = 50          -- Total pool size for all food types
 local SPAWN_COUNT_DAY = 30    -- Number of food items to spawn during day
 local SPAWN_AREA_SIZE = 200   -- Size of spawn area (200x200 studs)
-local SPAWN_HEIGHT = 50       -- Height to spawn food at (will fall down)
+local SPAWN_HEIGHT = 100      -- Height to spawn food at (will fall down)
+local MIN_SPAWN_DISTANCE = 10 -- Minimum distance between food spawns (studs)
 
 function FoodSpawner.new()
     local self = setmetatable({}, FoodSpawner)
@@ -27,6 +28,7 @@ function FoodSpawner.new()
     self.FoodFolder = nil        -- Folder to hold all food items
     self.FoodModelsFolder = nil  -- Folder containing custom food models
     self.SpawnAreaCenter = Vector3.new(0, SPAWN_HEIGHT, 0)  -- Default center
+    self.SpawnPositions = {}     -- Track spawn positions to avoid overlap
 
     self:Initialize()
 
@@ -130,21 +132,36 @@ function FoodSpawner:ConfigureFoodItem(foodItem, foodType)
         customModel = self.FoodModelsFolder:FindFirstChild(foodType)
     end
 
-    if customModel then
-        -- Clone the custom model
-        for _, child in ipairs(customModel:GetChildren()) do
-            child:Clone().Parent = foodItem
-        end
+    local mainPart = nil
 
-        -- Find or create primary part
-        local primaryPart = foodItem:FindFirstChildWhichIsA("BasePart") or foodItem:FindFirstChild("PrimaryPart")
-        if primaryPart then
-            foodItem.PrimaryPart = primaryPart
+    if customModel then
+        -- Check if custom model is a single Part/MeshPart or a Model
+        if customModel:IsA("BasePart") then
+            -- It's a single part (MeshPart or Part)
+            local clonedPart = customModel:Clone()
+            clonedPart.Name = "FoodPart"
+            clonedPart.Anchored = false
+            clonedPart.CanCollide = true
+            clonedPart.Parent = foodItem
+            foodItem.PrimaryPart = clonedPart
+            mainPart = clonedPart
+        else
+            -- It's a Model - clone all children
+            for _, child in ipairs(customModel:GetChildren()) do
+                child:Clone().Parent = foodItem
+            end
+
+            -- Find or create primary part
+            local primaryPart = foodItem:FindFirstChildWhichIsA("BasePart") or foodItem:FindFirstChild("PrimaryPart")
+            if primaryPart then
+                foodItem.PrimaryPart = primaryPart
+                mainPart = primaryPart
+            end
         end
     else
         -- Fallback: Create default part
         local part = Instance.new("Part")
-        part.Name = "PrimaryPart"
+        part.Name = "FoodPart"
         part.Size = foodData.Size
         part.Color = foodData.Color
         part.Anchored = false
@@ -154,6 +171,7 @@ function FoodSpawner:ConfigureFoodItem(foodItem, foodType)
         part.BottomSurface = Enum.SurfaceType.Smooth
         part.Parent = foodItem
         foodItem.PrimaryPart = part
+        mainPart = part
 
         -- Add sparkle effect for fallback
         local sparkle = Instance.new("Sparkles")
@@ -172,41 +190,41 @@ function FoodSpawner:ConfigureFoodItem(foodItem, foodType)
     foodItem:SetAttribute("Collected", false)
 
     -- Ensure primary part exists
-    if not foodItem.PrimaryPart then
+    if not mainPart or not foodItem.PrimaryPart then
         warn("[FoodSpawner] No PrimaryPart found for", foodType)
         return
     end
 
     -- Add click detector to primary part if not exists
-    local clickDetector = foodItem.PrimaryPart:FindFirstChild("ClickDetector")
+    local clickDetector = mainPart:FindFirstChild("ClickDetector")
     if not clickDetector then
         clickDetector = Instance.new("ClickDetector")
         clickDetector.MaxActivationDistance = 10
-        clickDetector.Parent = foodItem.PrimaryPart
+        clickDetector.Parent = mainPart
     end
 
     -- Add proximity prompt to primary part if not exists
-    local proximityPrompt = foodItem.PrimaryPart:FindFirstChild("ProximityPrompt")
+    local proximityPrompt = mainPart:FindFirstChild("ProximityPrompt")
     if not proximityPrompt then
         proximityPrompt = Instance.new("ProximityPrompt")
         proximityPrompt.ActionText = "Collect"
         proximityPrompt.ObjectText = foodData.DisplayName
         proximityPrompt.MaxActivationDistance = 10
         proximityPrompt.HoldDuration = 0.3
-        proximityPrompt.Parent = foodItem.PrimaryPart
+        proximityPrompt.Parent = mainPart
     else
         proximityPrompt.ObjectText = foodData.DisplayName
     end
 
     -- Add or update billboard GUI
-    local billboard = foodItem.PrimaryPart:FindFirstChild("FoodLabel")
+    local billboard = mainPart:FindFirstChild("FoodLabel")
     if not billboard then
         billboard = Instance.new("BillboardGui")
         billboard.Name = "FoodLabel"
         billboard.Size = UDim2.new(0, 100, 0, 40)
         billboard.StudsOffset = Vector3.new(0, 3, 0)
         billboard.AlwaysOnTop = true
-        billboard.Parent = foodItem.PrimaryPart
+        billboard.Parent = mainPart
 
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, 0, 1, 0)
@@ -225,13 +243,75 @@ function FoodSpawner:ConfigureFoodItem(foodItem, foodType)
     end
 end
 
--- Get random spawn position within area
+-- Raycast to find ground level
+function FoodSpawner:FindGroundPosition(position)
+    local rayOrigin = Vector3.new(position.X, position.Y, position.Z)
+    local rayDirection = Vector3.new(0, -200, 0)  -- Cast down 200 studs
+
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {self.FoodFolder}
+
+    local rayResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+    if rayResult then
+        -- Found ground, spawn 2 studs above it
+        return rayResult.Position + Vector3.new(0, 2, 0)
+    else
+        -- No ground found, use default height
+        return Vector3.new(position.X, 5, position.Z)
+    end
+end
+
+-- Check if position is too close to existing spawns
+function FoodSpawner:IsPositionValid(position)
+    for _, existingPos in ipairs(self.SpawnPositions) do
+        local distance = (position - existingPos).Magnitude
+        if distance < MIN_SPAWN_DISTANCE then
+            return false
+        end
+    end
+    return true
+end
+
+-- Get random spawn position within area with spacing
 function FoodSpawner:GetRandomSpawnPosition()
     local halfSize = SPAWN_AREA_SIZE / 2
+    local attempts = 0
+    local maxAttempts = 20
+
+    while attempts < maxAttempts do
+        -- Generate random X and Z with more spread
+        local randomX = math.random(-halfSize, halfSize)
+        local randomZ = math.random(-halfSize, halfSize)
+
+        local position = Vector3.new(
+            self.SpawnAreaCenter.X + randomX,
+            self.SpawnAreaCenter.Y,
+            self.SpawnAreaCenter.Z + randomZ
+        )
+
+        -- Find ground at this position
+        local groundPosition = self:FindGroundPosition(position)
+
+        -- Check if position is valid (not too close to others)
+        if self:IsPositionValid(groundPosition) then
+            table.insert(self.SpawnPositions, groundPosition)
+            return groundPosition
+        end
+
+        attempts = attempts + 1
+    end
+
+    -- If we couldn't find a good position, just return a random one
     local randomX = math.random(-halfSize, halfSize)
     local randomZ = math.random(-halfSize, halfSize)
-
-    return self.SpawnAreaCenter + Vector3.new(randomX, 0, randomZ)
+    local fallbackPos = Vector3.new(
+        self.SpawnAreaCenter.X + randomX,
+        self.SpawnAreaCenter.Y,
+        self.SpawnAreaCenter.Z + randomZ
+    )
+    return self:FindGroundPosition(fallbackPos)
 end
 
 -- Spawn a single food item
@@ -257,15 +337,18 @@ function FoodSpawner:SpawnFoodBatch(count)
 
     print("[FoodSpawner] Spawning", count, "food items...")
 
+    -- Clear previous spawn positions
+    self.SpawnPositions = {}
+
     for i = 1, count do
         local foodType = FoodConfig:GetRandomFoodType()
         local position = self:GetRandomSpawnPosition()
 
         self:SpawnFood(foodType, position)
 
-        -- Small delay to avoid lag spike
-        if i % 10 == 0 then
-            task.wait()
+        -- Small delay to avoid lag spike and allow physics to settle
+        if i % 5 == 0 then
+            task.wait(0.1)
         end
     end
 
@@ -283,6 +366,9 @@ function FoodSpawner:ClearAllFood()
         local foodItem = self.ActiveFood[1]
         self:ReturnToPool(foodItem)
     end
+
+    -- Clear spawn positions tracking
+    self.SpawnPositions = {}
 
     print("[FoodSpawner] Cleared", count, "food items. Pool:", #self.FoodPool)
 end
