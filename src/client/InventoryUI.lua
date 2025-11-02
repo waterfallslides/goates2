@@ -25,6 +25,12 @@ local TimeUpdateEvent = eventsFolder:WaitForChild("TimeUpdate", 5)
 -- Get FoodConfig for icons
 local FoodConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FoodConfig"))
 
+-- Get ConsumeFood RemoteFunction
+local ConsumeFoodFunction = ReplicatedStorage:WaitForChild("ConsumeFood", 10)
+
+-- Track equipped item
+local equippedSlot = nil
+
 -- Create main ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "InventoryStatsUI"
@@ -183,13 +189,33 @@ for i = 1, 3 do
     qtyCorner.CornerRadius = UDim.new(0, 4)
     qtyCorner.Parent = quantity
 
+    -- Equipped indicator (checkmark)
+    local equippedIndicator = Instance.new("TextLabel")
+    equippedIndicator.Name = "EquippedIndicator"
+    equippedIndicator.Size = UDim2.new(0, 20, 0, 20)
+    equippedIndicator.Position = UDim2.new(0, 5, 0, 5)
+    equippedIndicator.BackgroundColor3 = Color3.fromRGB(46, 125, 50)
+    equippedIndicator.BackgroundTransparency = 0.2
+    equippedIndicator.Text = "✓"
+    equippedIndicator.TextColor3 = Color3.new(1, 1, 1)
+    equippedIndicator.Font = Enum.Font.GothamBold
+    equippedIndicator.TextSize = 14
+    equippedIndicator.Visible = false
+    equippedIndicator.Parent = slot
+
+    local eqCorner = Instance.new("UICorner")
+    eqCorner.CornerRadius = UDim.new(0, 4)
+    eqCorner.Parent = equippedIndicator
+
     -- Store reference
     inventorySlots[i] = {
         Frame = slot,
         Icon = icon,
         ItemName = itemName,
         Quantity = quantity,
-        FoodType = nil
+        EquippedIndicator = equippedIndicator,
+        FoodType = nil,
+        Button = nil  -- Will be created when slot has item
     }
 end
 
@@ -246,6 +272,44 @@ local function updateStats(stats)
     end
 end
 
+-- Function to equip/unequip or consume food
+local function handleSlotClick(slotIndex)
+    local slot = inventorySlots[slotIndex]
+
+    if not slot.FoodType then
+        -- Empty slot, do nothing
+        return
+    end
+
+    -- If this slot is already equipped, consume the food
+    if equippedSlot == slotIndex then
+        print("[InventoryUI] Consuming", slot.FoodType)
+
+        if ConsumeFoodFunction then
+            local success = pcall(function()
+                ConsumeFoodFunction:InvokeServer(slot.FoodType)
+            end)
+
+            if success then
+                -- Unequip after consuming
+                slot.EquippedIndicator.Visible = false
+                equippedSlot = nil
+            end
+        end
+    else
+        -- Unequip previous slot
+        if equippedSlot then
+            inventorySlots[equippedSlot].EquippedIndicator.Visible = false
+        end
+
+        -- Equip this slot
+        equippedSlot = slotIndex
+        slot.EquippedIndicator.Visible = true
+
+        print("[InventoryUI] Equipped", slot.FoodType)
+    end
+end
+
 -- Update inventory display (hotbar slots)
 local function updateInventory(inventoryData)
     if not inventoryData then return end
@@ -265,6 +329,17 @@ local function updateInventory(inventoryData)
         slot.FoodType = nil
         slot.Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         slot.Frame.BorderColor3 = Color3.fromRGB(70, 70, 70)
+
+        -- Remove old button if exists
+        if slot.Button then
+            slot.Button:Destroy()
+            slot.Button = nil
+        end
+
+        -- Hide equipped indicator if this slot is not equipped anymore
+        if equippedSlot ~= i then
+            slot.EquippedIndicator.Visible = false
+        end
     end
 
     -- Fill slots with inventory items
@@ -305,6 +380,20 @@ local function updateInventory(inventoryData)
                 -- Store food type
                 slot.FoodType = itemData.FoodType
 
+                -- Create invisible button for clicking
+                local button = Instance.new("TextButton")
+                button.Size = UDim2.new(1, 0, 1, 0)
+                button.BackgroundTransparency = 1
+                button.Text = ""
+                button.ZIndex = 10
+                button.Parent = slot.Frame
+                slot.Button = button
+
+                -- Handle click
+                button.MouseButton1Click:Connect(function()
+                    handleSlotClick(i)
+                end)
+
                 -- Animate slot appearance
                 local originalSize = slot.Frame.Size
                 slot.Frame.Size = UDim2.new(0, 70, 0, 50)
@@ -313,6 +402,22 @@ local function updateInventory(inventoryData)
                 })
                 tween:Play()
             end
+        end
+    end
+
+    -- Clear equipped slot if food no longer exists
+    if equippedSlot then
+        local slotStillHasFood = false
+        for _, itemData in ipairs(inventoryData) do
+            if inventorySlots[equippedSlot].FoodType == itemData.FoodType then
+                slotStillHasFood = true
+                break
+            end
+        end
+
+        if not slotStillHasFood then
+            inventorySlots[equippedSlot].EquippedIndicator.Visible = false
+            equippedSlot = nil
         end
     end
 end

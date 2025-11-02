@@ -16,19 +16,14 @@ if not eventsFolder then
     return
 end
 
--- Create remote function for collection requests
+-- Wait for FoodFolder
 local FoodFolder = Workspace:WaitForChild("FoodItems", 10)
 
--- Remote Function for requesting food collection
-local CollectFoodFunction = Instance.new("RemoteFunction")
-CollectFoodFunction.Name = "CollectFood"
-
--- Find or create in ReplicatedStorage
-local existingFunction = ReplicatedStorage:FindFirstChild("CollectFood")
-if existingFunction then
-    CollectFoodFunction = existingFunction
-else
-    CollectFoodFunction.Parent = ReplicatedStorage
+-- Wait for Remote Function (server creates it)
+local CollectFoodFunction = ReplicatedStorage:WaitForChild("CollectFood", 10)
+if not CollectFoodFunction then
+    warn("[FoodCollectionHandler] CollectFood RemoteFunction not found!")
+    return
 end
 
 -- Listen for Remote Events
@@ -115,9 +110,29 @@ end
 
 -- Setup food item interaction
 local function setupFoodItem(foodItem)
+    -- Wait for food to be fully set up
+    if not foodItem:GetAttribute("FoodType") then
+        -- Food not configured yet, wait a bit
+        for i = 1, 10 do
+            task.wait(0.05)
+            if foodItem:GetAttribute("FoodType") then
+                break
+            end
+        end
+    end
+
     -- Handle both Models and Parts
     local primaryPart = nil
     if foodItem:IsA("Model") then
+        -- Wait for PrimaryPart to be set
+        if not foodItem.PrimaryPart then
+            for i = 1, 10 do
+                task.wait(0.05)
+                if foodItem.PrimaryPart then
+                    break
+                end
+            end
+        end
         primaryPart = foodItem.PrimaryPart
     elseif foodItem:IsA("BasePart") then
         primaryPart = foodItem
@@ -128,29 +143,43 @@ local function setupFoodItem(foodItem)
         return
     end
 
-    -- Click Detector (search in primary part)
-    local clickDetector = primaryPart:FindFirstChild("ClickDetector", true)
+    -- Find ClickDetector (search in descendants)
+    local clickDetector = primaryPart:FindFirstChildOfClass("ClickDetector")
+    if not clickDetector then
+        clickDetector = foodItem:FindFirstChildOfClass("ClickDetector", true)
+    end
+
     if clickDetector then
         clickDetector.MouseClick:Connect(function(clickingPlayer)
             if clickingPlayer == player then
                 local foodType = foodItem:GetAttribute("FoodType")
                 if foodType and not foodItem:GetAttribute("Collected") then
                     -- Request collection from server
-                    local success = CollectFoodFunction:InvokeServer(foodItem)
+                    pcall(function()
+                        CollectFoodFunction:InvokeServer(foodItem)
+                    end)
                 end
             end
         end)
+    else
+        warn("[FoodCollectionHandler] No ClickDetector found for:", foodItem.Name)
     end
 
-    -- Proximity Prompt (search in primary part or descendants)
-    local proximityPrompt = primaryPart:FindFirstChild("ProximityPrompt", true)
+    -- Find Proximity Prompt (search in descendants)
+    local proximityPrompt = primaryPart:FindFirstChildOfClass("ProximityPrompt")
+    if not proximityPrompt then
+        proximityPrompt = foodItem:FindFirstChildOfClass("ProximityPrompt", true)
+    end
+
     if proximityPrompt then
         proximityPrompt.Triggered:Connect(function(triggeringPlayer)
             if triggeringPlayer == player then
                 local foodType = foodItem:GetAttribute("FoodType")
                 if foodType and not foodItem:GetAttribute("Collected") then
                     -- Request collection from server
-                    local success = CollectFoodFunction:InvokeServer(foodItem)
+                    pcall(function()
+                        CollectFoodFunction:InvokeServer(foodItem)
+                    end)
                 end
             end
         end)
@@ -169,8 +198,10 @@ if FoodFolder then
     -- Setup new food items as they spawn
     FoodFolder.ChildAdded:Connect(function(child)
         if child:IsA("Model") or child:IsA("BasePart") then
-            task.wait(0.1)  -- Small delay to ensure everything is set up
-            setupFoodItem(child)
+            task.spawn(function()
+                task.wait(0.5)  -- Longer delay to ensure everything is set up
+                setupFoodItem(child)
+            end)
         end
     end)
 

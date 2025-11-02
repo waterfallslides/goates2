@@ -25,6 +25,14 @@ if not collectFoodFunction then
     collectFoodFunction.Parent = ReplicatedStorage
 end
 
+-- Create RemoteFunction for food consumption
+local consumeFoodFunction = ReplicatedStorage:FindFirstChild("ConsumeFood")
+if not consumeFoodFunction then
+    consumeFoodFunction = Instance.new("RemoteFunction")
+    consumeFoodFunction.Name = "ConsumeFood"
+    consumeFoodFunction.Parent = ReplicatedStorage
+end
+
 -- Handle food collection requests from clients
 collectFoodFunction.OnServerInvoke = function(player, foodItem)
     -- Accept both Models and BaseParts
@@ -55,6 +63,25 @@ collectFoodFunction.OnServerInvoke = function(player, foodItem)
         return true
     else
         print("[FoodSystemManager]", player.Name, "failed to collect", foodType, "-", reason)
+        return false
+    end
+end
+
+-- Handle food consumption requests from clients
+consumeFoodFunction.OnServerInvoke = function(player, foodType)
+    if not foodType then
+        warn("[FoodSystemManager] Invalid food type from player:", player.Name)
+        return false
+    end
+
+    -- Try to consume food from inventory
+    local success, reason = playerInventory:ConsumeFood(player, foodType)
+
+    if success then
+        print("[FoodSystemManager]", player.Name, "consumed", foodType)
+        return true
+    else
+        print("[FoodSystemManager]", player.Name, "failed to consume", foodType, "-", reason or "unknown error")
         return false
     end
 end
