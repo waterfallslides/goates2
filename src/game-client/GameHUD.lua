@@ -2,11 +2,11 @@
     ROBLOX BUNKER SURVIVAL - GAME HUD
     Client-side HUD displaying game info
 
-    Layout:
-    - Top Left: Health bar (red), Hunger bar (orange)
+    Layout (Survival Theme):
+    - Bottom Left: Health bar (red), Hunger bar (orange)
     - Top Right: Coins display
-    - Top Center: "Day X" counter
-    - Center Top: Phase timer (seconds until day/night)
+    - Top Left: Day counter + Timer
+    - Center: Warning messages
 ]]
 
 local GameHUD = {}
@@ -24,9 +24,12 @@ local playerGui = player:WaitForChild("PlayerGui")
 local screenGui = nil
 local healthBar = nil
 local hungerBar = nil
+local healthText = nil
+local hungerText = nil
 local coinsLabel = nil
 local dayLabel = nil
 local timerLabel = nil
+local phaseLabel = nil
 local warningLabel = nil
 
 -- State
@@ -38,19 +41,17 @@ local currentDay = 1
 local isDay = true
 local timeRemaining = 180
 
--- Colors
+-- Colors (Darker, more survival-themed)
 local COLORS = {
-    Health = Color3.fromRGB(255, 50, 50), -- Red
-    HealthBg = Color3.fromRGB(80, 20, 20),
-    Hunger = Color3.fromRGB(255, 170, 0), -- Orange
-    HungerBg = Color3.fromRGB(80, 60, 0),
-    Day = Color3.fromRGB(100, 200, 255), -- Light blue
-    Night = Color3.fromRGB(150, 50, 200), -- Purple
-    Warning = {
-        [30] = Color3.fromRGB(255, 255, 0), -- Yellow
-        [10] = Color3.fromRGB(255, 140, 0), -- Orange
-        [0] = Color3.fromRGB(255, 0, 0), -- Red
-    }
+    Health = Color3.fromRGB(200, 40, 40), -- Dark red
+    HealthBg = Color3.fromRGB(40, 10, 10),
+    Hunger = Color3.fromRGB(200, 120, 20), -- Dark orange
+    HungerBg = Color3.fromRGB(40, 30, 5),
+    Coins = Color3.fromRGB(255, 215, 0), -- Gold
+    Day = Color3.fromRGB(255, 200, 100), -- Warm yellow
+    Night = Color3.fromRGB(100, 150, 255), -- Cool blue
+    Background = Color3.fromRGB(20, 20, 25),
+    Border = Color3.fromRGB(60, 60, 70),
 }
 
 -- Initialize HUD
@@ -90,34 +91,47 @@ function GameHUD:CreateHUD()
     self:CreateWarningLabel()
 end
 
--- Create health bar
+-- Create health bar (survival style, bottom left)
 function GameHUD:CreateHealthBar()
     -- Container
     local container = Instance.new("Frame")
     container.Name = "HealthContainer"
-    container.Size = UDim2.new(0, 250, 0, 35)
-    container.Position = UDim2.new(0, 20, 0, 20)
-    container.BackgroundTransparency = 1
+    container.Size = UDim2.new(0, 300, 0, 40)
+    container.Position = UDim2.new(0, 20, 1, -90)
+    container.AnchorPoint = Vector2.new(0, 1)
+    container.BackgroundColor3 = COLORS.Background
+    container.BorderSizePixel = 0
     container.Parent = screenGui
 
-    -- Label
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0, 80, 0, 20)
-    label.Position = UDim2.new(0, 0, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "HEALTH"
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.TextSize = 14
-    label.Font = Enum.Font.FredokaOne
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextStrokeTransparency = 0.5
-    label.Parent = container
+    -- Border
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = COLORS.Border
+    stroke.Thickness = 2
+    stroke.Parent = container
+
+    -- Corner
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = container
+
+    -- Icon (heart symbol)
+    local icon = Instance.new("TextLabel")
+    icon.Size = UDim2.new(0, 30, 0, 30)
+    icon.Position = UDim2.new(0, 5, 0.5, 0)
+    icon.AnchorPoint = Vector2.new(0, 0.5)
+    icon.BackgroundTransparency = 1
+    icon.Text = "❤"
+    icon.TextColor3 = COLORS.Health
+    icon.TextSize = 24
+    icon.Font = Enum.Font.GothamBold
+    icon.Parent = container
 
     -- Background bar
     local background = Instance.new("Frame")
     background.Name = "Background"
-    background.Size = UDim2.new(1, 0, 0, 12)
-    background.Position = UDim2.new(0, 0, 0, 23)
+    background.Size = UDim2.new(1, -80, 0, 20)
+    background.Position = UDim2.new(0, 40, 0.5, 0)
+    background.AnchorPoint = Vector2.new(0, 0.5)
     background.BackgroundColor3 = COLORS.HealthBg
     background.BorderSizePixel = 0
     background.Parent = container
@@ -130,50 +144,70 @@ function GameHUD:CreateHealthBar()
     healthBar.BorderSizePixel = 0
     healthBar.Parent = background
 
-    -- Border/stroke
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.new(1, 1, 1)
-    stroke.Thickness = 2
-    stroke.Parent = background
-
-    -- Corner
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 4)
-    corner.Parent = background
-
+    -- Corner for bars
     local corner2 = Instance.new("UICorner")
-    corner2.CornerRadius = UDim.new(0, 4)
-    corner2.Parent = healthBar
+    corner2.CornerRadius = UDim.new(0, 3)
+    corner2.Parent = background
+
+    local corner3 = Instance.new("UICorner")
+    corner3.CornerRadius = UDim.new(0, 3)
+    corner3.Parent = healthBar
+
+    -- Text showing HP numbers
+    healthText = Instance.new("TextLabel")
+    healthText.Size = UDim2.new(0, 60, 1, 0)
+    healthText.Position = UDim2.new(1, -65, 0, 0)
+    healthText.BackgroundTransparency = 1
+    healthText.Text = "100/100"
+    healthText.TextColor3 = Color3.new(1, 1, 1)
+    healthText.TextSize = 14
+    healthText.Font = Enum.Font.GothamBold
+    healthText.TextXAlignment = Enum.TextXAlignment.Right
+    healthText.TextStrokeTransparency = 0.7
+    healthText.Parent = container
 end
 
--- Create hunger bar
+-- Create hunger bar (survival style, below health)
 function GameHUD:CreateHungerBar()
     -- Container
     local container = Instance.new("Frame")
     container.Name = "HungerContainer"
-    container.Size = UDim2.new(0, 250, 0, 35)
-    container.Position = UDim2.new(0, 20, 0, 65)
-    container.BackgroundTransparency = 1
+    container.Size = UDim2.new(0, 300, 0, 40)
+    container.Position = UDim2.new(0, 20, 1, -45)
+    container.AnchorPoint = Vector2.new(0, 1)
+    container.BackgroundColor3 = COLORS.Background
+    container.BorderSizePixel = 0
     container.Parent = screenGui
 
-    -- Label
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0, 80, 0, 20)
-    label.Position = UDim2.new(0, 0, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "HUNGER"
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.TextSize = 14
-    label.Font = Enum.Font.FredokaOne
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextStrokeTransparency = 0.5
-    label.Parent = container
+    -- Border
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = COLORS.Border
+    stroke.Thickness = 2
+    stroke.Parent = container
+
+    -- Corner
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = container
+
+    -- Icon (food symbol)
+    local icon = Instance.new("TextLabel")
+    icon.Size = UDim2.new(0, 30, 0, 30)
+    icon.Position = UDim2.new(0, 5, 0.5, 0)
+    icon.AnchorPoint = Vector2.new(0, 0.5)
+    icon.BackgroundTransparency = 1
+    icon.Text = "🍖"
+    icon.TextColor3 = COLORS.Hunger
+    icon.TextSize = 20
+    icon.Font = Enum.Font.GothamBold
+    icon.Parent = container
 
     -- Background bar
     local background = Instance.new("Frame")
     background.Name = "Background"
-    background.Size = UDim2.new(1, 0, 0, 12)
-    background.Position = UDim2.new(0, 0, 0, 23)
+    background.Size = UDim2.new(1, -80, 0, 20)
+    background.Position = UDim2.new(0, 40, 0.5, 0)
+    background.AnchorPoint = Vector2.new(0, 0.5)
     background.BackgroundColor3 = COLORS.HungerBg
     background.BorderSizePixel = 0
     background.Parent = container
@@ -186,137 +220,159 @@ function GameHUD:CreateHungerBar()
     hungerBar.BorderSizePixel = 0
     hungerBar.Parent = background
 
-    -- Border/stroke
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.new(1, 1, 1)
-    stroke.Thickness = 2
-    stroke.Parent = background
-
-    -- Corner
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 4)
-    corner.Parent = background
-
+    -- Corner for bars
     local corner2 = Instance.new("UICorner")
-    corner2.CornerRadius = UDim.new(0, 4)
-    corner2.Parent = hungerBar
+    corner2.CornerRadius = UDim.new(0, 3)
+    corner2.Parent = background
+
+    local corner3 = Instance.new("UICorner")
+    corner3.CornerRadius = UDim.new(0, 3)
+    corner3.Parent = hungerBar
+
+    -- Text showing hunger percentage
+    hungerText = Instance.new("TextLabel")
+    hungerText.Size = UDim2.new(0, 60, 1, 0)
+    hungerText.Position = UDim2.new(1, -65, 0, 0)
+    hungerText.BackgroundTransparency = 1
+    hungerText.Text = "100%"
+    hungerText.TextColor3 = Color3.new(1, 1, 1)
+    hungerText.TextSize = 14
+    hungerText.Font = Enum.Font.GothamBold
+    hungerText.TextXAlignment = Enum.TextXAlignment.Right
+    hungerText.TextStrokeTransparency = 0.7
+    hungerText.Parent = container
 end
 
--- Create coins display
+-- Create coins display (top right, survival style)
 function GameHUD:CreateCoinsDisplay()
     -- Container
     local container = Instance.new("Frame")
     container.Name = "CoinsContainer"
-    container.Size = UDim2.new(0, 200, 0, 50)
+    container.Size = UDim2.new(0, 150, 0, 40)
     container.AnchorPoint = Vector2.new(1, 0)
     container.Position = UDim2.new(1, -20, 0, 20)
-    container.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    container.BackgroundColor3 = COLORS.Background
     container.BorderSizePixel = 0
     container.Parent = screenGui
 
     -- Corner
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
+    corner.CornerRadius = UDim.new(0, 4)
     corner.Parent = container
 
     -- Stroke
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 215, 0) -- Gold
-    stroke.Thickness = 3
+    stroke.Color = COLORS.Border
+    stroke.Thickness = 2
     stroke.Parent = container
 
-    -- Coin icon (text)
+    -- Coin icon
     local icon = Instance.new("TextLabel")
-    icon.Size = UDim2.new(0, 40, 1, 0)
-    icon.Position = UDim2.new(0, 5, 0, 0)
+    icon.Size = UDim2.new(0, 30, 0, 30)
+    icon.Position = UDim2.new(0, 8, 0.5, 0)
+    icon.AnchorPoint = Vector2.new(0, 0.5)
     icon.BackgroundTransparency = 1
     icon.Text = "💰"
-    icon.TextSize = 30
+    icon.TextSize = 20
     icon.Parent = container
 
     -- Coins label
     coinsLabel = Instance.new("TextLabel")
-    coinsLabel.Size = UDim2.new(1, -50, 1, 0)
-    coinsLabel.Position = UDim2.new(0, 50, 0, 0)
+    coinsLabel.Size = UDim2.new(1, -45, 1, 0)
+    coinsLabel.Position = UDim2.new(0, 40, 0, 0)
     coinsLabel.BackgroundTransparency = 1
     coinsLabel.Text = "0"
-    coinsLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-    coinsLabel.TextSize = 28
-    coinsLabel.Font = Enum.Font.FredokaOne
+    coinsLabel.TextColor3 = COLORS.Coins
+    coinsLabel.TextSize = 18
+    coinsLabel.Font = Enum.Font.GothamBold
     coinsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    coinsLabel.TextStrokeTransparency = 0.5
+    coinsLabel.TextStrokeTransparency = 0.7
     coinsLabel.Parent = container
 end
 
--- Create day label
+-- Create day and timer display (top left, combined)
 function GameHUD:CreateDayLabel()
+    -- Container for day/timer info
+    local container = Instance.new("Frame")
+    container.Name = "DayTimerContainer"
+    container.Size = UDim2.new(0, 200, 0, 80)
+    container.Position = UDim2.new(0, 20, 0, 20)
+    container.BackgroundColor3 = COLORS.Background
+    container.BorderSizePixel = 0
+    container.Parent = screenGui
+
+    -- Corner
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = container
+
+    -- Stroke
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = COLORS.Border
+    stroke.Thickness = 2
+    stroke.Parent = container
+
+    -- Day label (top section)
     dayLabel = Instance.new("TextLabel")
     dayLabel.Name = "DayLabel"
-    dayLabel.Size = UDim2.new(0, 200, 0, 50)
-    dayLabel.AnchorPoint = Vector2.new(0.5, 0)
-    dayLabel.Position = UDim2.new(0.5, 0, 0, 20)
-    dayLabel.BackgroundTransparency = 0.3
-    dayLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    dayLabel.Size = UDim2.new(1, -20, 0, 35)
+    dayLabel.Position = UDim2.new(0, 10, 0, 5)
+    dayLabel.BackgroundTransparency = 1
     dayLabel.Text = "DAY 1"
     dayLabel.TextColor3 = COLORS.Day
-    dayLabel.TextSize = 32
-    dayLabel.Font = Enum.Font.FredokaOne
-    dayLabel.TextStrokeTransparency = 0.3
-    dayLabel.Parent = screenGui
+    dayLabel.TextSize = 22
+    dayLabel.Font = Enum.Font.GothamBold
+    dayLabel.TextXAlignment = Enum.TextXAlignment.Left
+    dayLabel.TextStrokeTransparency = 0.7
+    dayLabel.Parent = container
 
-    -- Corner
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = dayLabel
+    -- Phase label (small text above timer)
+    phaseLabel = Instance.new("TextLabel")
+    phaseLabel.Name = "PhaseLabel"
+    phaseLabel.Size = UDim2.new(1, -20, 0, 15)
+    phaseLabel.Position = UDim2.new(0, 10, 0, 40)
+    phaseLabel.BackgroundTransparency = 1
+    phaseLabel.Text = "Daytime"
+    phaseLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    phaseLabel.TextSize = 12
+    phaseLabel.Font = Enum.Font.Gotham
+    phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+    phaseLabel.TextStrokeTransparency = 0.7
+    phaseLabel.Parent = container
 
-    -- Stroke
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.new(1, 1, 1)
-    stroke.Thickness = 2
-    stroke.Parent = dayLabel
-end
-
--- Create timer label
-function GameHUD:CreateTimerLabel()
+    -- Timer label (bottom section)
     timerLabel = Instance.new("TextLabel")
     timerLabel.Name = "TimerLabel"
-    timerLabel.Size = UDim2.new(0, 150, 0, 40)
-    timerLabel.AnchorPoint = Vector2.new(0.5, 0)
-    timerLabel.Position = UDim2.new(0.5, 0, 0, 80)
-    timerLabel.BackgroundTransparency = 0.3
-    timerLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    timerLabel.Size = UDim2.new(1, -20, 0, 25)
+    timerLabel.Position = UDim2.new(0, 10, 0, 52)
+    timerLabel.BackgroundTransparency = 1
     timerLabel.Text = "3:00"
     timerLabel.TextColor3 = Color3.new(1, 1, 1)
-    timerLabel.TextSize = 24
-    timerLabel.Font = Enum.Font.FredokaOne
-    timerLabel.TextStrokeTransparency = 0.3
-    timerLabel.Parent = screenGui
-
-    -- Corner
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = timerLabel
-
-    -- Stroke
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.new(1, 1, 1)
-    stroke.Thickness = 2
-    stroke.Parent = timerLabel
+    timerLabel.TextSize = 20
+    timerLabel.Font = Enum.Font.GothamBold
+    timerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    timerLabel.TextStrokeTransparency = 0.7
+    timerLabel.Parent = container
 end
 
--- Create warning label
+-- Placeholder for timer (kept for compatibility)
+function GameHUD:CreateTimerLabel()
+    -- Timer is now part of day label container
+end
+
+-- Create warning label (center screen)
 function GameHUD:CreateWarningLabel()
     warningLabel = Instance.new("TextLabel")
     warningLabel.Name = "WarningLabel"
-    warningLabel.Size = UDim2.new(0, 600, 0, 60)
-    warningLabel.AnchorPoint = Vector2.new(0.5, 0)
-    warningLabel.Position = UDim2.new(0.5, 0, 0.3, 0)
+    warningLabel.Size = UDim2.new(0, 600, 0, 80)
+    warningLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+    warningLabel.Position = UDim2.new(0.5, 0, 0.4, 0)
     warningLabel.BackgroundTransparency = 1
     warningLabel.Text = ""
     warningLabel.TextColor3 = Color3.new(1, 1, 1)
-    warningLabel.TextSize = 36
-    warningLabel.Font = Enum.Font.FredokaOne
-    warningLabel.TextStrokeTransparency = 0.3
+    warningLabel.TextSize = 32
+    warningLabel.Font = Enum.Font.GothamBold
+    warningLabel.TextStrokeTransparency = 0.5
     warningLabel.TextTransparency = 1
     warningLabel.Parent = screenGui
 end
@@ -397,6 +453,11 @@ function GameHUD:UpdateHealth(health)
         Size = UDim2.new(healthPercent, 0, 1, 0)
     })
     tween:Play()
+
+    -- Update text
+    if healthText then
+        healthText.Text = math.floor(currentHealth) .. "/" .. maxHealth
+    end
 end
 
 -- Update hunger bar
@@ -410,10 +471,16 @@ function GameHUD:UpdateHunger(hunger)
     })
     tween:Play()
 
-    -- Pulse if empty
-    if currentHunger <= 0 then
-        -- Add pulsing effect
-        -- (Could implement this with a loop)
+    -- Update text
+    if hungerText then
+        hungerText.Text = math.floor(currentHunger) .. "%"
+    end
+
+    -- Change color if low
+    if currentHunger <= 20 then
+        hungerBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50) -- Red when very low
+    else
+        hungerBar.BackgroundColor3 = COLORS.Hunger
     end
 end
 
@@ -435,13 +502,24 @@ function GameHUD:UpdateDay(day, isDayPhase)
     currentDay = day
     isDay = isDayPhase
 
-    dayLabel.Text = "DAY " .. day
+    if dayLabel then
+        dayLabel.Text = "DAY " .. day
 
-    -- Change color based on phase
-    if isDayPhase then
-        dayLabel.TextColor3 = COLORS.Day
-    else
-        dayLabel.TextColor3 = COLORS.Night
+        -- Change color based on phase
+        if isDayPhase then
+            dayLabel.TextColor3 = COLORS.Day
+        else
+            dayLabel.TextColor3 = COLORS.Night
+        end
+    end
+
+    -- Update phase label
+    if phaseLabel then
+        if isDayPhase then
+            phaseLabel.Text = "Daytime - Gather Resources"
+        else
+            phaseLabel.Text = "Nighttime - Defend!"
+        end
     end
 end
 
@@ -450,6 +528,8 @@ function GameHUD:UpdateTimer(data)
     isDay = data.IsDay
     timeRemaining = data.TimeRemaining
 
+    if not timerLabel then return end
+
     -- Format time as MM:SS
     local minutes = math.floor(timeRemaining / 60)
     local seconds = timeRemaining % 60
@@ -457,9 +537,9 @@ function GameHUD:UpdateTimer(data)
 
     -- Change color based on time remaining
     if timeRemaining <= 10 then
-        timerLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- Red
+        timerLabel.TextColor3 = Color3.fromRGB(255, 50, 50) -- Red
     elseif timeRemaining <= 30 then
-        timerLabel.TextColor3 = Color3.fromRGB(255, 140, 0) -- Orange
+        timerLabel.TextColor3 = Color3.fromRGB(255, 160, 50) -- Orange
     else
         timerLabel.TextColor3 = Color3.new(1, 1, 1) -- White
     end

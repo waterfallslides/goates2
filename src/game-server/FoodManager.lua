@@ -5,11 +5,12 @@
     Food Types:
     - Bread: +20 HP, +30% hunger (common)
     - Apple: +15 HP, +20% hunger (common)
-    - Cooked Meat: +40 HP, +50% hunger (rare)
-    - Canned Food: +25 HP, +40% hunger (uncommon)
-    - Water Bottle: +10 HP, +25% hunger (common)
+    - CookedMeat: +40 HP, +50% hunger (rare)
+    - CannedFood: +25 HP, +40% hunger (uncommon)
+    - WaterBottle: +10 HP, +25% hunger (common)
 
     Spawning:
+    - Uses existing food models from ServerStorage/ReplicatedStorage
     - Random locations across map
     - Same amount regardless of player count
     - New spawn locations each day
@@ -20,6 +21,7 @@ local FoodManager = {}
 
 -- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 -- Configuration
 local CONFIG = {
@@ -46,22 +48,16 @@ local CONFIG = {
     SPAWN_HEIGHT = 5, -- Height above terrain
 
     -- Food model properties
-    FOOD_SIZE = Vector3.new(2, 2, 2),
     FOOD_COLLECTION_DISTANCE = 10,
-}
 
--- Food colors for visual identification
-local FOOD_COLORS = {
-    Bread = Color3.fromRGB(210, 180, 140), -- Tan
-    Apple = Color3.fromRGB(255, 0, 0), -- Red
-    CookedMeat = Color3.fromRGB(139, 69, 19), -- Brown
-    CannedFood = Color3.fromRGB(192, 192, 192), -- Silver
-    WaterBottle = Color3.fromRGB(100, 200, 255), -- Light blue
+    -- Model storage location
+    MODELS_FOLDER_NAME = "FoodModels", -- Look for this folder in ServerStorage or ReplicatedStorage
 }
 
 -- State
 FoodManager.SpawnedFood = {} -- Tracks all spawned food
 FoodManager.FoodFolder = nil
+FoodManager.FoodModels = {} -- Cache of food models
 
 -- Initialize
 function FoodManager:Initialize()
@@ -72,8 +68,42 @@ function FoodManager:Initialize()
     self.FoodFolder.Name = "Food"
     self.FoodFolder.Parent = workspace
 
+    -- Load food models
+    self:LoadFoodModels()
+
     -- Create remote events
     self:CreateRemoteEvents()
+end
+
+-- Load food models from storage
+function FoodManager:LoadFoodModels()
+    -- Try ServerStorage first
+    local modelsFolder = ServerStorage:FindFirstChild(CONFIG.MODELS_FOLDER_NAME)
+
+    -- If not in ServerStorage, try ReplicatedStorage
+    if not modelsFolder then
+        modelsFolder = ReplicatedStorage:FindFirstChild(CONFIG.MODELS_FOLDER_NAME)
+    end
+
+    if not modelsFolder then
+        warn("[FoodManager] Food models folder '" .. CONFIG.MODELS_FOLDER_NAME .. "' not found!")
+        warn("[FoodManager] Please create a folder named '" .. CONFIG.MODELS_FOLDER_NAME .. "' in ServerStorage or ReplicatedStorage")
+        warn("[FoodManager] Will use fallback simple models")
+        return
+    end
+
+    -- Load each food type model
+    for foodType, _ in pairs(CONFIG.FOOD_COUNTS) do
+        local model = modelsFolder:FindFirstChild(foodType)
+        if model then
+            self.FoodModels[foodType] = model
+            print("[FoodManager] Loaded model for: " .. foodType)
+        else
+            warn("[FoodManager] Model not found for: " .. foodType)
+        end
+    end
+
+    print("[FoodManager] Loaded " .. #self.FoodModels .. " food models")
 end
 
 -- Create remote events
@@ -115,62 +145,81 @@ function FoodManager:SpawnFoodItem(foodType)
     -- Get random spawn position
     local position = self:GetRandomSpawnPosition(CONFIG.RARITY[foodType])
 
-    -- Create food part
-    local food = Instance.new("Part")
-    food.Name = foodType
-    food.Size = CONFIG.FOOD_SIZE
-    food.Position = position
-    food.Anchored = true
-    food.CanCollide = false
-    food.Color = FOOD_COLORS[foodType]
-    food.Material = Enum.Material.SmoothPlastic
-    food.Shape = Enum.PartType.Ball -- Make food spherical
+    local food
 
-    -- Add click detector for collection
-    local clickDetector = Instance.new("ClickDetector")
-    clickDetector.MaxActivationDistance = CONFIG.FOOD_COLLECTION_DISTANCE
-    clickDetector.Parent = food
+    -- Try to clone existing model
+    if self.FoodModels[foodType] then
+        food = self.FoodModels[foodType]:Clone()
+        food.Name = foodType
 
-    -- Handle clicks
-    clickDetector.MouseClick:Connect(function(player)
-        self:CollectFood(player, food)
-    end)
+        -- Position the cloned model
+        if food:IsA("Model") and food.PrimaryPart then
+            food:SetPrimaryPartCFrame(CFrame.new(position))
+        elseif food:IsA("Model") then
+            -- If no PrimaryPart, try to find the main part
+            local mainPart = food:FindFirstChildWhichIsA("BasePart")
+            if mainPart then
+                food:MoveTo(position)
+            end
+        elseif food:IsA("BasePart") then
+            food.Position = position
+            food.Anchored = true
+        end
+    else
+        -- Fallback: Create simple part if model not found
+        warn("[FoodManager] No model found for " .. foodType .. ", using fallback")
+        food = Instance.new("Part")
+        food.Name = foodType
+        food.Size = Vector3.new(2, 2, 2)
+        food.Position = position
+        food.Anchored = true
+        food.CanCollide = false
+        food.Material = Enum.Material.SmoothPlastic
+        food.Shape = Enum.PartType.Ball
+        food.BrickColor = BrickColor.Random()
 
-    -- Add proximity prompt (alternative to click detector)
+        -- Add label for fallback
+        local billboardGui = Instance.new("BillboardGui")
+        billboardGui.Size = UDim2.new(0, 100, 0, 40)
+        billboardGui.StudsOffset = Vector3.new(0, 2, 0)
+        billboardGui.AlwaysOnTop = true
+        billboardGui.Parent = food
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Text = foodType
+        textLabel.TextColor3 = Color3.new(1, 1, 1)
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.TextStrokeTransparency = 0.5
+        textLabel.Parent = billboardGui
+    end
+
+    -- Add proximity prompt for collection (works on both Models and Parts)
     local proximityPrompt = Instance.new("ProximityPrompt")
-    proximityPrompt.ActionText = "Collect " .. foodType
+    proximityPrompt.ActionText = "Collect"
     proximityPrompt.ObjectText = foodType
     proximityPrompt.MaxActivationDistance = CONFIG.FOOD_COLLECTION_DISTANCE
-    proximityPrompt.Parent = food
+    proximityPrompt.HoldDuration = 0
+    proximityPrompt.RequiresLineOfSight = false
+
+    -- Find where to parent the proximity prompt
+    if food:IsA("Model") then
+        local primaryPart = food.PrimaryPart or food:FindFirstChildWhichIsA("BasePart")
+        if primaryPart then
+            proximityPrompt.Parent = primaryPart
+        else
+            proximityPrompt.Parent = food
+        end
+    else
+        proximityPrompt.Parent = food
+    end
 
     -- Handle proximity prompt
     proximityPrompt.Triggered:Connect(function(player)
         self:CollectFood(player, food)
     end)
-
-    -- Add billboard GUI for label
-    local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Size = UDim2.new(0, 100, 0, 40)
-    billboardGui.StudsOffset = Vector3.new(0, 2, 0)
-    billboardGui.AlwaysOnTop = true
-    billboardGui.Parent = food
-
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = foodType
-    textLabel.TextColor3 = Color3.new(1, 1, 1)
-    textLabel.TextScaled = true
-    textLabel.Font = Enum.Font.FredokaOne
-    textLabel.TextStrokeTransparency = 0.5
-    textLabel.Parent = billboardGui
-
-    -- Add glow effect
-    local pointLight = Instance.new("PointLight")
-    pointLight.Color = FOOD_COLORS[foodType]
-    pointLight.Brightness = 1
-    pointLight.Range = 15
-    pointLight.Parent = food
 
     -- Add to folder
     food.Parent = self.FoodFolder

@@ -24,6 +24,7 @@ local GameManager = require(gameServerFolder.GameManager)
 local DayNightManager = require(gameServerFolder.DayNightManager)
 local PlayerDataManager = require(gameServerFolder.PlayerDataManager)
 local FoodManager = require(gameServerFolder.FoodManager)
+local MonsterManager = require(gameServerFolder.MonsterManager)
 
 print("[INIT] Managers loaded successfully")
 
@@ -39,12 +40,17 @@ PlayerDataManager:Initialize(GameManager)
 -- 3. Initialize Food Manager
 FoodManager:Initialize()
 
--- 4. Initialize Day/Night Manager (depends on GameManager)
+-- 4. Initialize Monster Manager
+MonsterManager:Initialize(GameManager)
+
+-- 5. Initialize Day/Night Manager (depends on GameManager)
 DayNightManager:Initialize(GameManager)
 
 -- Link managers together
 DayNightManager.FoodManager = FoodManager
+DayNightManager.MonstersManager = MonsterManager
 DayNightManager.GameManager = GameManager
+MonsterManager.GameManager = GameManager
 
 print("[INIT] All systems initialized")
 
