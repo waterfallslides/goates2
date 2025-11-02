@@ -1,6 +1,6 @@
 --[[
     Inventory and Stats UI (Client-Side)
-    Displays player inventory, stats (health, hunger), and day/night status
+    Displays player inventory in hotbar style, stats, and day/night status
 ]]
 
 local Players = game:GetService("Players")
@@ -22,11 +22,15 @@ local StatsUpdateEvent = eventsFolder:WaitForChild("StatsUpdate", 5)
 local DayNightEvent = eventsFolder:WaitForChild("DayNightTransition", 5)
 local TimeUpdateEvent = eventsFolder:WaitForChild("TimeUpdate", 5)
 
+-- Get FoodConfig for icons
+local FoodConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FoodConfig"))
+
 -- Create main ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "InventoryStatsUI"
 screenGui.ResetOnSpawn = false
 screenGui.DisplayOrder = 5
+screenGui.IgnoreGuiInset = true
 screenGui.Parent = PlayerGui
 
 -- Create stats panel (top left)
@@ -34,8 +38,8 @@ local statsFrame = Instance.new("Frame")
 statsFrame.Name = "StatsPanel"
 statsFrame.Size = UDim2.new(0, 250, 0, 120)
 statsFrame.Position = UDim2.new(0, 10, 0, 10)
-statsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-statsFrame.BackgroundTransparency = 0.3
+statsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+statsFrame.BackgroundTransparency = 0.2
 statsFrame.BorderSizePixel = 0
 statsFrame.Parent = screenGui
 
@@ -82,55 +86,137 @@ dayNightLabel.Font = Enum.Font.GothamBold
 dayNightLabel.TextSize = 18
 dayNightLabel.Parent = statsFrame
 
--- Create inventory panel (bottom right - Roblox inventory position)
-local inventoryFrame = Instance.new("Frame")
-inventoryFrame.Name = "InventoryPanel"
-inventoryFrame.Size = UDim2.new(0, 300, 0, 200)
-inventoryFrame.Position = UDim2.new(1, -310, 1, -210)  -- Bottom right corner
-inventoryFrame.AnchorPoint = Vector2.new(0, 1)
-inventoryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-inventoryFrame.BackgroundTransparency = 0.3
-inventoryFrame.BorderSizePixel = 0
-inventoryFrame.Parent = screenGui
-
-local inventoryCorner = Instance.new("UICorner")
-inventoryCorner.CornerRadius = UDim.new(0, 8)
-inventoryCorner.Parent = inventoryFrame
+-- Create hotbar inventory (bottom center - Roblox style)
+local hotbarFrame = Instance.new("Frame")
+hotbarFrame.Name = "HotbarInventory"
+hotbarFrame.Size = UDim2.new(0, 320, 0, 90)
+hotbarFrame.Position = UDim2.new(0.5, 0, 1, -100)
+hotbarFrame.AnchorPoint = Vector2.new(0.5, 0)
+hotbarFrame.BackgroundTransparency = 1
+hotbarFrame.Parent = screenGui
 
 -- Inventory title
 local inventoryTitle = Instance.new("TextLabel")
 inventoryTitle.Name = "Title"
-inventoryTitle.Size = UDim2.new(1, -20, 0, 30)
-inventoryTitle.Position = UDim2.new(0, 10, 0, 5)
+inventoryTitle.Size = UDim2.new(1, 0, 0, 20)
+inventoryTitle.Position = UDim2.new(0, 0, 0, 0)
 inventoryTitle.BackgroundTransparency = 1
-inventoryTitle.Text = "🎒 INVENTORY (0/3)"
+inventoryTitle.Text = "INVENTORY (0/3)"
 inventoryTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-inventoryTitle.TextXAlignment = Enum.TextXAlignment.Left
 inventoryTitle.Font = Enum.Font.GothamBold
-inventoryTitle.TextSize = 20
-inventoryTitle.Parent = inventoryFrame
+inventoryTitle.TextSize = 14
+inventoryTitle.TextStrokeTransparency = 0.5
+inventoryTitle.Parent = hotbarFrame
 
--- Inventory items container
-local itemsContainer = Instance.new("ScrollingFrame")
-itemsContainer.Name = "ItemsContainer"
-itemsContainer.Size = UDim2.new(1, -20, 1, -45)
-itemsContainer.Position = UDim2.new(0, 10, 0, 35)
-itemsContainer.BackgroundTransparency = 1
-itemsContainer.BorderSizePixel = 0
-itemsContainer.ScrollBarThickness = 6
-itemsContainer.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
-itemsContainer.Parent = inventoryFrame
+-- Create slots container
+local slotsContainer = Instance.new("Frame")
+slotsContainer.Name = "Slots"
+slotsContainer.Size = UDim2.new(1, 0, 0, 70)
+slotsContainer.Position = UDim2.new(0, 0, 0, 20)
+slotsContainer.BackgroundTransparency = 1
+slotsContainer.Parent = hotbarFrame
 
-local itemsLayout = Instance.new("UIListLayout")
-itemsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-itemsLayout.Padding = UDim.new(0, 5)
-itemsLayout.Parent = itemsContainer
+local slotsLayout = Instance.new("UIListLayout")
+slotsLayout.FillDirection = Enum.FillDirection.Horizontal
+slotsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+slotsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+slotsLayout.Padding = UDim.new(0, 10)
+slotsLayout.Parent = slotsContainer
+
+-- Create 3 inventory slots
+local inventorySlots = {}
+for i = 1, 3 do
+    local slot = Instance.new("Frame")
+    slot.Name = "Slot" .. i
+    slot.Size = UDim2.new(0, 90, 0, 70)
+    slot.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    slot.BorderSizePixel = 2
+    slot.BorderColor3 = Color3.fromRGB(70, 70, 70)
+    slot.LayoutOrder = i
+    slot.Parent = slotsContainer
+
+    local slotCorner = Instance.new("UICorner")
+    slotCorner.CornerRadius = UDim.new(0, 6)
+    slotCorner.Parent = slot
+
+    -- Icon/Emoji
+    local icon = Instance.new("TextLabel")
+    icon.Name = "Icon"
+    icon.Size = UDim2.new(1, -10, 0, 35)
+    icon.Position = UDim2.new(0, 5, 0, 5)
+    icon.BackgroundTransparency = 1
+    icon.Text = "?"
+    icon.TextColor3 = Color3.fromRGB(150, 150, 150)
+    icon.Font = Enum.Font.GothamBold
+    icon.TextSize = 28
+    icon.Parent = slot
+
+    -- Item name
+    local itemName = Instance.new("TextLabel")
+    itemName.Name = "ItemName"
+    itemName.Size = UDim2.new(1, -10, 0, 15)
+    itemName.Position = UDim2.new(0, 5, 0, 40)
+    itemName.BackgroundTransparency = 1
+    itemName.Text = "Empty"
+    itemName.TextColor3 = Color3.fromRGB(150, 150, 150)
+    itemName.Font = Enum.Font.Gotham
+    itemName.TextSize = 10
+    itemName.TextScaled = true
+    itemName.Parent = slot
+
+    -- Quantity label (bottom right)
+    local quantity = Instance.new("TextLabel")
+    quantity.Name = "Quantity"
+    quantity.Size = UDim2.new(0, 25, 0, 15)
+    quantity.Position = UDim2.new(1, -30, 1, -20)
+    quantity.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    quantity.BackgroundTransparency = 0.3
+    quantity.BorderSizePixel = 0
+    quantity.Text = ""
+    quantity.TextColor3 = Color3.fromRGB(255, 255, 255)
+    quantity.Font = Enum.Font.GothamBold
+    quantity.TextSize = 12
+    quantity.Visible = false
+    quantity.Parent = slot
+
+    local qtyCorner = Instance.new("UICorner")
+    qtyCorner.CornerRadius = UDim.new(0, 4)
+    qtyCorner.Parent = quantity
+
+    -- Store reference
+    inventorySlots[i] = {
+        Frame = slot,
+        Icon = icon,
+        ItemName = itemName,
+        Quantity = quantity,
+        FoodType = nil
+    }
+end
 
 -- Function to format time
 local function formatTime(seconds)
     local minutes = math.floor(seconds / 60)
     local secs = seconds % 60
     return string.format("%d:%02d", minutes, secs)
+end
+
+-- Function to get emoji/icon for food type
+local function getFoodIcon(foodType)
+    local icons = {
+        Bread = "🍞",
+        Apple = "🍎",
+        CookedMeat = "🍖",
+        CannedFood = "🥫",
+        WaterBottle = "💧"
+    }
+    return icons[foodType] or "🍴"
+end
+
+-- Function to get short name for food
+local function getShortName(displayName)
+    -- Remove emoji from display name
+    local name = displayName:gsub("[%z\1-\127\194-\244][\128-\191]*", "")
+    return name:match("^%s*(.-)%s*$") -- Trim whitespace
 end
 
 -- Update stats display
@@ -160,61 +246,75 @@ local function updateStats(stats)
     end
 end
 
--- Update inventory display
+-- Update inventory display (hotbar slots)
 local function updateInventory(inventoryData)
     if not inventoryData then return end
 
-    -- Clear existing items
-    for _, child in ipairs(itemsContainer:GetChildren()) do
-        if child:IsA("Frame") then
-            child:Destroy()
+    -- Update title
+    inventoryTitle.Text = string.format("INVENTORY (%d/3)", #inventoryData)
+
+    -- Clear all slots first
+    for i = 1, 3 do
+        local slot = inventorySlots[i]
+        slot.Icon.Text = "?"
+        slot.Icon.TextColor3 = Color3.fromRGB(100, 100, 100)
+        slot.ItemName.Text = "Empty"
+        slot.ItemName.TextColor3 = Color3.fromRGB(150, 150, 150)
+        slot.Quantity.Visible = false
+        slot.Quantity.Text = ""
+        slot.FoodType = nil
+        slot.Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        slot.Frame.BorderColor3 = Color3.fromRGB(70, 70, 70)
+    end
+
+    -- Fill slots with inventory items
+    for i, itemData in ipairs(inventoryData) do
+        if i <= 3 then
+            local slot = inventorySlots[i]
+            local foodData = FoodConfig.FoodTypes[itemData.FoodType]
+
+            if foodData then
+                -- Set icon
+                slot.Icon.Text = getFoodIcon(itemData.FoodType)
+
+                -- Color based on rarity
+                if foodData.Rarity == "common" then
+                    slot.Icon.TextColor3 = Color3.fromRGB(200, 200, 200)
+                    slot.Frame.BorderColor3 = Color3.fromRGB(150, 150, 150)
+                elseif foodData.Rarity == "uncommon" then
+                    slot.Icon.TextColor3 = Color3.fromRGB(100, 255, 100)
+                    slot.Frame.BorderColor3 = Color3.fromRGB(100, 255, 100)
+                elseif foodData.Rarity == "rare" then
+                    slot.Icon.TextColor3 = Color3.fromRGB(255, 215, 0)
+                    slot.Frame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+                end
+
+                -- Set item name
+                slot.ItemName.Text = getShortName(itemData.DisplayName)
+                slot.ItemName.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+                -- Set quantity
+                if itemData.Count > 1 then
+                    slot.Quantity.Text = "x" .. itemData.Count
+                    slot.Quantity.Visible = true
+                end
+
+                -- Highlight slot
+                slot.Frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+
+                -- Store food type
+                slot.FoodType = itemData.FoodType
+
+                -- Animate slot appearance
+                local originalSize = slot.Frame.Size
+                slot.Frame.Size = UDim2.new(0, 70, 0, 50)
+                local tween = TweenService:Create(slot.Frame, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+                    Size = originalSize
+                })
+                tween:Play()
+            end
         end
     end
-
-    -- Update title with count
-    inventoryTitle.Text = string.format("🎒 INVENTORY (%d/3)", #inventoryData)
-
-    -- Create item entries
-    for i, itemData in ipairs(inventoryData) do
-        local itemFrame = Instance.new("Frame")
-        itemFrame.Name = "Item_" .. itemData.FoodType
-        itemFrame.Size = UDim2.new(1, 0, 0, 40)
-        itemFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        itemFrame.BackgroundTransparency = 0.5
-        itemFrame.BorderSizePixel = 0
-        itemFrame.Parent = itemsContainer
-
-        local itemCorner = Instance.new("UICorner")
-        itemCorner.CornerRadius = UDim.new(0, 6)
-        itemCorner.Parent = itemFrame
-
-        -- Food name and count
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(0.7, 0, 1, 0)
-        nameLabel.Position = UDim2.new(0, 10, 0, 0)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = itemData.DisplayName
-        nameLabel.TextColor3 = Color3.new(1, 1, 1)
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.Font = Enum.Font.Gotham
-        nameLabel.TextSize = 16
-        nameLabel.Parent = itemFrame
-
-        -- Count label
-        local countLabel = Instance.new("TextLabel")
-        countLabel.Size = UDim2.new(0.3, -10, 1, 0)
-        countLabel.Position = UDim2.new(0.7, 0, 0, 0)
-        countLabel.BackgroundTransparency = 1
-        countLabel.Text = "x" .. itemData.Count
-        countLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        countLabel.TextXAlignment = Enum.TextXAlignment.Right
-        countLabel.Font = Enum.Font.GothamBold
-        countLabel.TextSize = 18
-        countLabel.Parent = itemFrame
-    end
-
-    -- Update canvas size
-    itemsContainer.CanvasSize = UDim2.new(0, 0, 0, itemsLayout.AbsoluteContentSize.Y)
 end
 
 -- Update day/night display
@@ -225,7 +325,7 @@ local function updateDayNight(isDay, timeRemaining)
 
         -- Animate color change
         local tween = TweenService:Create(statsFrame, TweenInfo.new(1), {
-            BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            BackgroundColor3 = Color3.fromRGB(25, 25, 25)
         })
         tween:Play()
     else
@@ -263,4 +363,4 @@ if TimeUpdateEvent then
     end)
 end
 
-print("[InventoryUI] Inventory and stats UI initialized!")
+print("[InventoryUI] Hotbar-style inventory UI initialized!")
