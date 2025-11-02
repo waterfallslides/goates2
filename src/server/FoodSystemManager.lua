@@ -27,7 +27,8 @@ end
 
 -- Handle food collection requests from clients
 collectFoodFunction.OnServerInvoke = function(player, foodItem)
-    if not foodItem or not foodItem:IsA("BasePart") then
+    -- Accept both Models and BaseParts
+    if not foodItem or not (foodItem:IsA("Model") or foodItem:IsA("BasePart")) then
         warn("[FoodSystemManager] Invalid food item from player:", player.Name)
         return false
     end

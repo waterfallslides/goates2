@@ -82,11 +82,12 @@ dayNightLabel.Font = Enum.Font.GothamBold
 dayNightLabel.TextSize = 18
 dayNightLabel.Parent = statsFrame
 
--- Create inventory panel (top right)
+-- Create inventory panel (bottom right - Roblox inventory position)
 local inventoryFrame = Instance.new("Frame")
 inventoryFrame.Name = "InventoryPanel"
 inventoryFrame.Size = UDim2.new(0, 300, 0, 200)
-inventoryFrame.Position = UDim2.new(1, -310, 0, 10)
+inventoryFrame.Position = UDim2.new(1, -310, 1, -210)  -- Bottom right corner
+inventoryFrame.AnchorPoint = Vector2.new(0, 1)
 inventoryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 inventoryFrame.BackgroundTransparency = 0.3
 inventoryFrame.BorderSizePixel = 0

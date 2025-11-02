@@ -115,8 +115,21 @@ end
 
 -- Setup food item interaction
 local function setupFoodItem(foodItem)
-    -- Click Detector
-    local clickDetector = foodItem:FindFirstChild("ClickDetector")
+    -- Handle both Models and Parts
+    local primaryPart = nil
+    if foodItem:IsA("Model") then
+        primaryPart = foodItem.PrimaryPart
+    elseif foodItem:IsA("BasePart") then
+        primaryPart = foodItem
+    end
+
+    if not primaryPart then
+        warn("[FoodCollectionHandler] Food item has no primary part:", foodItem.Name)
+        return
+    end
+
+    -- Click Detector (search in primary part)
+    local clickDetector = primaryPart:FindFirstChild("ClickDetector", true)
     if clickDetector then
         clickDetector.MouseClick:Connect(function(clickingPlayer)
             if clickingPlayer == player then
@@ -129,8 +142,8 @@ local function setupFoodItem(foodItem)
         end)
     end
 
-    -- Proximity Prompt (for mobile/console)
-    local proximityPrompt = foodItem:FindFirstChild("ProximityPrompt")
+    -- Proximity Prompt (search in primary part or descendants)
+    local proximityPrompt = primaryPart:FindFirstChild("ProximityPrompt", true)
     if proximityPrompt then
         proximityPrompt.Triggered:Connect(function(triggeringPlayer)
             if triggeringPlayer == player then
@@ -148,14 +161,14 @@ end
 if FoodFolder then
     -- Setup existing food items
     for _, foodItem in ipairs(FoodFolder:GetChildren()) do
-        if foodItem:IsA("BasePart") then
+        if foodItem:IsA("Model") or foodItem:IsA("BasePart") then
             setupFoodItem(foodItem)
         end
     end
 
     -- Setup new food items as they spawn
     FoodFolder.ChildAdded:Connect(function(child)
-        if child:IsA("BasePart") then
+        if child:IsA("Model") or child:IsA("BasePart") then
             task.wait(0.1)  -- Small delay to ensure everything is set up
             setupFoodItem(child)
         end

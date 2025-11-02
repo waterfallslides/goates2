@@ -25,6 +25,7 @@ function FoodSpawner.new()
     self.FoodPool = {}           -- Pool of inactive food objects
     self.ActiveFood = {}         -- Currently active food in world
     self.FoodFolder = nil        -- Folder to hold all food items
+    self.FoodModelsFolder = nil  -- Folder containing custom food models
     self.SpawnAreaCenter = Vector3.new(0, SPAWN_HEIGHT, 0)  -- Default center
 
     self:Initialize()
@@ -40,6 +41,16 @@ function FoodSpawner:Initialize()
         self.FoodFolder = Instance.new("Folder")
         self.FoodFolder.Name = "FoodItems"
         self.FoodFolder.Parent = Workspace
+    end
+
+    -- Look for custom food models in ReplicatedStorage
+    self.FoodModelsFolder = ReplicatedStorage:FindFirstChild("FoodModels")
+
+    if self.FoodModelsFolder then
+        print("[FoodSpawner] Using custom food models from ReplicatedStorage/FoodModels")
+    else
+        warn("[FoodSpawner] FoodModels folder not found in ReplicatedStorage! Using default parts.")
+        warn("[FoodSpawner] Create a 'FoodModels' folder in ReplicatedStorage with food models named: Bread, Apple, CookedMeat, CannedFood, WaterBottle")
     end
 
     -- Pre-create pool of food objects
@@ -59,53 +70,20 @@ end
 
 -- Create a single food object (reusable template)
 function FoodSpawner:CreateFoodObject()
-    local part = Instance.new("Part")
-    part.Name = "Food"
-    part.Anchored = false
-    part.CanCollide = true
-    part.Material = Enum.Material.SmoothPlastic
-    part.Shape = Enum.PartType.Block
-    part.TopSurface = Enum.SurfaceType.Smooth
-    part.BottomSurface = Enum.SurfaceType.Smooth
+    -- This is now just a placeholder - actual models set during Configure
+    local model = Instance.new("Model")
+    model.Name = "Food"
 
-    -- Add click detector for collection
-    local clickDetector = Instance.new("ClickDetector")
-    clickDetector.MaxActivationDistance = 10
-    clickDetector.Parent = part
+    -- Create a primary part placeholder (will be replaced by actual model)
+    local primaryPart = Instance.new("Part")
+    primaryPart.Name = "PrimaryPart"
+    primaryPart.Size = Vector3.new(2, 2, 2)
+    primaryPart.Anchored = false
+    primaryPart.CanCollide = true
+    primaryPart.Parent = model
+    model.PrimaryPart = primaryPart
 
-    -- Add proximity prompt for mobile/console support
-    local proximityPrompt = Instance.new("ProximityPrompt")
-    proximityPrompt.ActionText = "Collect"
-    proximityPrompt.ObjectText = "Food"
-    proximityPrompt.MaxActivationDistance = 10
-    proximityPrompt.HoldDuration = 0.3
-    proximityPrompt.Parent = part
-
-    -- Add billboard GUI for display name
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "FoodLabel"
-    billboard.Size = UDim2.new(0, 100, 0, 40)
-    billboard.StudsOffset = Vector3.new(0, 2, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = part
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "Food"
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
-    label.TextStrokeTransparency = 0.5
-    label.Parent = billboard
-
-    -- Add sparkle effect
-    local sparkle = Instance.new("Sparkles")
-    sparkle.SparkleColor = Color3.new(1, 1, 0)
-    sparkle.Enabled = true
-    sparkle.Parent = part
-
-    return part
+    return model
 end
 
 -- Get a food object from pool
@@ -143,39 +121,107 @@ function FoodSpawner:ConfigureFoodItem(foodItem, foodType)
         return
     end
 
-    -- Set attributes for identification
+    -- Clear existing contents
+    foodItem:ClearAllChildren()
+
+    -- Try to use custom model first
+    local customModel = nil
+    if self.FoodModelsFolder then
+        customModel = self.FoodModelsFolder:FindFirstChild(foodType)
+    end
+
+    if customModel then
+        -- Clone the custom model
+        for _, child in ipairs(customModel:GetChildren()) do
+            child:Clone().Parent = foodItem
+        end
+
+        -- Find or create primary part
+        local primaryPart = foodItem:FindFirstChildWhichIsA("BasePart") or foodItem:FindFirstChild("PrimaryPart")
+        if primaryPart then
+            foodItem.PrimaryPart = primaryPart
+        end
+    else
+        -- Fallback: Create default part
+        local part = Instance.new("Part")
+        part.Name = "PrimaryPart"
+        part.Size = foodData.Size
+        part.Color = foodData.Color
+        part.Anchored = false
+        part.CanCollide = true
+        part.Material = Enum.Material.SmoothPlastic
+        part.TopSurface = Enum.SurfaceType.Smooth
+        part.BottomSurface = Enum.SurfaceType.Smooth
+        part.Parent = foodItem
+        foodItem.PrimaryPart = part
+
+        -- Add sparkle effect for fallback
+        local sparkle = Instance.new("Sparkles")
+        if foodData.Rarity == "common" then
+            sparkle.SparkleColor = Color3.fromRGB(200, 200, 200)
+        elseif foodData.Rarity == "uncommon" then
+            sparkle.SparkleColor = Color3.fromRGB(100, 255, 100)
+        elseif foodData.Rarity == "rare" then
+            sparkle.SparkleColor = Color3.fromRGB(255, 215, 0)
+        end
+        sparkle.Parent = part
+    end
+
+    -- Set attributes for identification (on the model itself)
     foodItem:SetAttribute("FoodType", foodType)
     foodItem:SetAttribute("Collected", false)
 
-    -- Set appearance
-    foodItem.Size = foodData.Size
-    foodItem.Color = foodData.Color
+    -- Ensure primary part exists
+    if not foodItem.PrimaryPart then
+        warn("[FoodSpawner] No PrimaryPart found for", foodType)
+        return
+    end
 
-    -- Update label
-    local billboard = foodItem:FindFirstChild("FoodLabel")
-    if billboard then
+    -- Add click detector to primary part if not exists
+    local clickDetector = foodItem.PrimaryPart:FindFirstChild("ClickDetector")
+    if not clickDetector then
+        clickDetector = Instance.new("ClickDetector")
+        clickDetector.MaxActivationDistance = 10
+        clickDetector.Parent = foodItem.PrimaryPart
+    end
+
+    -- Add proximity prompt to primary part if not exists
+    local proximityPrompt = foodItem.PrimaryPart:FindFirstChild("ProximityPrompt")
+    if not proximityPrompt then
+        proximityPrompt = Instance.new("ProximityPrompt")
+        proximityPrompt.ActionText = "Collect"
+        proximityPrompt.ObjectText = foodData.DisplayName
+        proximityPrompt.MaxActivationDistance = 10
+        proximityPrompt.HoldDuration = 0.3
+        proximityPrompt.Parent = foodItem.PrimaryPart
+    else
+        proximityPrompt.ObjectText = foodData.DisplayName
+    end
+
+    -- Add or update billboard GUI
+    local billboard = foodItem.PrimaryPart:FindFirstChild("FoodLabel")
+    if not billboard then
+        billboard = Instance.new("BillboardGui")
+        billboard.Name = "FoodLabel"
+        billboard.Size = UDim2.new(0, 100, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = foodItem.PrimaryPart
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = foodData.DisplayName
+        label.TextColor3 = Color3.new(1, 1, 1)
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+        label.TextStrokeTransparency = 0.5
+        label.Parent = billboard
+    else
         local label = billboard:FindFirstChild("TextLabel")
         if label then
             label.Text = foodData.DisplayName
         end
-    end
-
-    -- Update sparkle color based on rarity
-    local sparkle = foodItem:FindFirstChild("Sparkles")
-    if sparkle then
-        if foodData.Rarity == "common" then
-            sparkle.SparkleColor = Color3.fromRGB(200, 200, 200)  -- White
-        elseif foodData.Rarity == "uncommon" then
-            sparkle.SparkleColor = Color3.fromRGB(100, 255, 100)  -- Green
-        elseif foodData.Rarity == "rare" then
-            sparkle.SparkleColor = Color3.fromRGB(255, 215, 0)    -- Gold
-        end
-    end
-
-    -- Update proximity prompt
-    local prompt = foodItem:FindFirstChild("ProximityPrompt")
-    if prompt then
-        prompt.ObjectText = foodData.DisplayName
     end
 end
 
@@ -194,7 +240,9 @@ function FoodSpawner:SpawnFood(foodType, position)
     self:ConfigureFoodItem(foodItem, foodType)
 
     -- Set position and add to world
-    foodItem.Position = position or self:GetRandomSpawnPosition()
+    if foodItem.PrimaryPart then
+        foodItem:MoveTo(position or self:GetRandomSpawnPosition())
+    end
     foodItem.Parent = self.FoodFolder
 
     -- Add to active list
