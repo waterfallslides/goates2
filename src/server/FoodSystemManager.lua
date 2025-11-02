@@ -35,21 +35,39 @@ end
 
 -- Handle food collection requests from clients
 collectFoodFunction.OnServerInvoke = function(player, foodItem)
-    -- Accept both Models and BaseParts
-    if not foodItem or not (foodItem:IsA("Model") or foodItem:IsA("BasePart")) then
-        warn("[FoodSystemManager] Invalid food item from player:", player.Name)
+    -- Validate input
+    if not player or not player.Parent then
         return false
     end
 
-    -- Check if food is already collected
-    if foodItem:GetAttribute("Collected") == true then
+    if not foodItem or not foodItem.Parent then
         return false
     end
 
-    -- Get food type
+    if not (foodItem:IsA("Model") or foodItem:IsA("BasePart")) then
+        warn("[FoodSystemManager] Invalid food item type from player:", player.Name)
+        return false
+    end
+
+    -- Get food type (check both Model and PrimaryPart)
     local foodType = foodItem:GetAttribute("FoodType")
+
+    if not foodType and foodItem:IsA("Model") and foodItem.PrimaryPart then
+        foodType = foodItem.PrimaryPart:GetAttribute("FoodType")
+    end
+
     if not foodType then
         warn("[FoodSystemManager] Food item missing FoodType attribute")
+        return false
+    end
+
+    -- Check if already collected (check both)
+    local collected = foodItem:GetAttribute("Collected")
+    if not collected and foodItem:IsA("Model") and foodItem.PrimaryPart then
+        collected = foodItem.PrimaryPart:GetAttribute("Collected")
+    end
+
+    if collected == true then
         return false
     end
 

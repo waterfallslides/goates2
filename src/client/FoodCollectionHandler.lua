@@ -108,79 +108,80 @@ if CollectionFailedEvent then
     end)
 end
 
--- Setup food item interaction
+-- Setup food item interaction (SIMPLIFIED)
 local function setupFoodItem(foodItem)
-    -- Wait for food to be fully set up
-    if not foodItem:GetAttribute("FoodType") then
-        -- Food not configured yet, wait a bit
-        for i = 1, 10 do
-            task.wait(0.05)
-            if foodItem:GetAttribute("FoodType") then
-                break
-            end
+    -- Simple approach: just set up connections, don't wait
+    local function tryCollect()
+        if not foodItem or not foodItem.Parent then return end
+
+        local success, err = pcall(function()
+            CollectFoodFunction:InvokeServer(foodItem)
+        end)
+
+        if not success then
+            print("[FoodCollectionHandler] Collection error:", err)
         end
     end
 
-    -- Handle both Models and Parts
-    local primaryPart = nil
+    -- Try to find the part to attach to
+    local targetPart = nil
     if foodItem:IsA("Model") then
-        -- Wait for PrimaryPart to be set
-        if not foodItem.PrimaryPart then
-            for i = 1, 10 do
-                task.wait(0.05)
-                if foodItem.PrimaryPart then
-                    break
-                end
-            end
-        end
-        primaryPart = foodItem.PrimaryPart
+        targetPart = foodItem.PrimaryPart or foodItem:FindFirstChildWhichIsA("BasePart")
     elseif foodItem:IsA("BasePart") then
-        primaryPart = foodItem
+        targetPart = foodItem
     end
 
-    if not primaryPart then
-        warn("[FoodCollectionHandler] Food item has no primary part:", foodItem.Name)
+    if not targetPart then
+        -- Retry after delay
+        task.delay(0.5, function()
+            setupFoodItem(foodItem)
+        end)
         return
     end
 
-    -- Find ClickDetector (search in descendants)
-    local clickDetector = primaryPart:FindFirstChildOfClass("ClickDetector")
+    -- Find or wait for ClickDetector
+    local clickDetector = targetPart:FindFirstChildOfClass("ClickDetector", true) or foodItem:FindFirstChildOfClass("ClickDetector", true)
     if not clickDetector then
-        clickDetector = foodItem:FindFirstChildOfClass("ClickDetector", true)
-    end
-
-    if clickDetector then
-        clickDetector.MouseClick:Connect(function(clickingPlayer)
-            if clickingPlayer == player then
-                local foodType = foodItem:GetAttribute("FoodType")
-                if foodType and not foodItem:GetAttribute("Collected") then
-                    -- Request collection from server
-                    pcall(function()
-                        CollectFoodFunction:InvokeServer(foodItem)
+        -- Try again after delay
+        task.delay(0.3, function()
+            if foodItem and foodItem.Parent then
+                clickDetector = targetPart:FindFirstChildOfClass("ClickDetector", true) or foodItem:FindFirstChildOfClass("ClickDetector", true)
+                if clickDetector then
+                    clickDetector.MouseClick:Connect(function(clickingPlayer)
+                        if clickingPlayer == player then
+                            tryCollect()
+                        end
                     end)
                 end
             end
         end)
     else
-        warn("[FoodCollectionHandler] No ClickDetector found for:", foodItem.Name)
+        clickDetector.MouseClick:Connect(function(clickingPlayer)
+            if clickingPlayer == player then
+                tryCollect()
+            end
+        end)
     end
 
-    -- Find Proximity Prompt (search in descendants)
-    local proximityPrompt = primaryPart:FindFirstChildOfClass("ProximityPrompt")
+    -- Find or wait for ProximityPrompt
+    local proximityPrompt = targetPart:FindFirstChildOfClass("ProximityPrompt", true) or foodItem:FindFirstChildOfClass("ProximityPrompt", true)
     if not proximityPrompt then
-        proximityPrompt = foodItem:FindFirstChildOfClass("ProximityPrompt", true)
-    end
-
-    if proximityPrompt then
-        proximityPrompt.Triggered:Connect(function(triggeringPlayer)
-            if triggeringPlayer == player then
-                local foodType = foodItem:GetAttribute("FoodType")
-                if foodType and not foodItem:GetAttribute("Collected") then
-                    -- Request collection from server
-                    pcall(function()
-                        CollectFoodFunction:InvokeServer(foodItem)
+        task.delay(0.3, function()
+            if foodItem and foodItem.Parent then
+                proximityPrompt = targetPart:FindFirstChildOfClass("ProximityPrompt", true) or foodItem:FindFirstChildOfClass("ProximityPrompt", true)
+                if proximityPrompt then
+                    proximityPrompt.Triggered:Connect(function(triggeringPlayer)
+                        if triggeringPlayer == player then
+                            tryCollect()
+                        end
                     end)
                 end
+            end
+        end)
+    else
+        proximityPrompt.Triggered:Connect(function(triggeringPlayer)
+            if triggeringPlayer == player then
+                tryCollect()
             end
         end)
     end
@@ -199,7 +200,7 @@ if FoodFolder then
     FoodFolder.ChildAdded:Connect(function(child)
         if child:IsA("Model") or child:IsA("BasePart") then
             task.spawn(function()
-                task.wait(0.5)  -- Longer delay to ensure everything is set up
+                task.wait(0.2)  -- Short delay
                 setupFoodItem(child)
             end)
         end
