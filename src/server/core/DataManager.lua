@@ -11,16 +11,29 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Try to load ProfileService, fall back to mock if not found
+-- Try to load ProfileService, fall back to mock if error
 local ProfileService
 local profileServiceModule = ServerStorage:FindFirstChild("ProfileService")
 
 if profileServiceModule then
-	ProfileService = require(profileServiceModule)
-	print("✓ ProfileService loaded")
+	local success, result = pcall(function()
+		return require(profileServiceModule)
+	end)
+
+	if success then
+		ProfileService = result
+		print("✓ ProfileService loaded successfully")
+	else
+		warn("⚠️ ProfileService found but has errors:")
+		warn("   " .. tostring(result))
+		warn("⚠️ Falling back to MockProfileService (NO DATA PERSISTENCE)")
+		warn("   Download correct ProfileService from: https://github.com/MadStudioRoblox/ProfileService")
+		ProfileService = require(script.Parent.Parent:WaitForChild("MockProfileService"))
+	end
 else
-	warn("⚠️ ProfileService not found! Using mock (NO DATA PERSISTENCE)")
-	ProfileService = require(script.Parent.Parent.MockProfileService)
+	warn("⚠️ ProfileService not found in ServerStorage")
+	warn("⚠️ Using MockProfileService (NO DATA PERSISTENCE)")
+	ProfileService = require(script.Parent.Parent:WaitForChild("MockProfileService"))
 end
 
 local Config = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Config"))
