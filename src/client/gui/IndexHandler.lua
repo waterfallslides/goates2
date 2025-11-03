@@ -21,8 +21,53 @@ local getIndexData = events:WaitForChild("GetIndexData")
 
 -- UI elements
 local scrollingFrame = indexFrame:WaitForChild("ScrollingFrame")
-local template = scrollingFrame:WaitForChild("Template")
 local closeButton = indexFrame:WaitForChild("Close")
+
+-- Get or create template
+local template = scrollingFrame:FindFirstChild("Template")
+if not template then
+	-- Create template if it doesn't exist
+	template = Instance.new("Frame")
+	template.Name = "Template"
+	template.Size = UDim2.new(0.3, -5, 0.3, -5)
+	template.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	template.BorderSizePixel = 0
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = template
+
+	local characterImage = Instance.new("ImageLabel")
+	characterImage.Name = "Character"
+	characterImage.Size = UDim2.new(0.9, 0, 0.6, 0)
+	characterImage.Position = UDim2.new(0.05, 0, 0.05, 0)
+	characterImage.BackgroundTransparency = 1
+	characterImage.ScaleType = Enum.ScaleType.Fit
+	characterImage.Parent = template
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "Name"
+	nameLabel.Size = UDim2.new(0.9, 0, 0.15, 0)
+	nameLabel.Position = UDim2.new(0.05, 0, 0.68, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = Color3.new(1, 1, 1)
+	nameLabel.TextScaled = true
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.Parent = template
+
+	local rarityLabel = Instance.new("TextLabel")
+	rarityLabel.Name = "Rarity"
+	rarityLabel.Size = UDim2.new(0.9, 0, 0.12, 0)
+	rarityLabel.Position = UDim2.new(0.05, 0, 0.85, 0)
+	rarityLabel.BackgroundTransparency = 1
+	rarityLabel.TextColor3 = Color3.new(1, 1, 1)
+	rarityLabel.TextScaled = true
+	rarityLabel.Font = Enum.Font.Gotham
+	rarityLabel.Parent = template
+
+	template.Parent = scrollingFrame
+	print("✓ Created Index Template")
+end
 
 -- Hide template
 template.Visible = false
