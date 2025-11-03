@@ -62,7 +62,25 @@ print("  ✓ Events found")
 
 -- Get modules
 local brainrotData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"))
-local brainrotImageGen = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotImageGenerator"))
+
+-- OPTIONAL: BrainrotImageGenerator for 3D viewports (fallback to static images if not available)
+local brainrotImageGen = nil
+local imageGenModule = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("BrainrotImageGenerator")
+if imageGenModule then
+	local success, result = pcall(function()
+		return require(imageGenModule)
+	end)
+	if success then
+		brainrotImageGen = result
+		print("  ✓ BrainrotImageGenerator loaded - 3D viewports enabled")
+	else
+		warn("  ⚠️ BrainrotImageGenerator failed to load:", result)
+		warn("  → Falling back to static images")
+	end
+else
+	warn("  ⚠️ BrainrotImageGenerator not found - using static images")
+end
+
 print("  ✓ Modules loaded")
 
 -- Find YOUR DiceFrame (this script is IN DiceFrame)
@@ -213,16 +231,24 @@ end
 
 -- Show result after rolling
 local function showResult(result)
-	-- Create viewport to display the 3D model
-	local viewport = brainrotImageGen.SetupViewportInImage(brainrotImage, result.BrainrotID)
+	-- Try to create viewport to display the 3D model (if available)
+	if brainrotImageGen then
+		local success, viewport = pcall(function()
+			return brainrotImageGen.SetupViewportInImage(brainrotImage, result.BrainrotID)
+		end)
 
-	if not viewport then
-		-- Fallback to static image if viewport fails
+		if success and viewport then
+			print("✓ Viewport created for:", result.BrainrotID)
+		else
+			-- Viewport failed, use static image
+			brainrotImage.Image = result.ImageId
+			brainrotImage.ImageColor3 = Color3.new(1, 1, 1)
+			print("⚠️ Viewport creation failed, using static image")
+		end
+	else
+		-- No image generator available, use static image
 		brainrotImage.Image = result.ImageId
 		brainrotImage.ImageColor3 = Color3.new(1, 1, 1)
-		print("⚠️ Viewport creation failed, using static image")
-	else
-		print("✓ Viewport created for:", result.BrainrotID)
 	end
 
 	-- Hide "Rolling" button when roll finishes

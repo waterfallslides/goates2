@@ -32,16 +32,20 @@ local StealingSystem = safeRequire(script.Parent:WaitForChild("Core"):WaitForChi
 local BaseManager = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("BaseManager"), "BaseManager")
 local RebirthHandler = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("RebirthHandler"), "RebirthHandler")
 local StatsManager = safeRequire(script.Parent:WaitForChild("Leaderboards"):WaitForChild("StatsManager"), "StatsManager")
-local BrainrotModelReplicator = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("BrainrotModelReplicator"), "BrainrotModelReplicator")
 local BrainrotData = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"), "BrainrotData")
 local Config = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Config"), "Config")
 
--- Optional: PlayerSpawner (runs independently as a Script, not a ModuleScript)
--- If PlayerSpawner exists as a Script in Server/, it will auto-run
--- No need to require it here
+-- OPTIONAL: BrainrotModelReplicator (for 3D viewport feature)
+local BrainrotModelReplicator = nil
+local replicatorModule = script.Parent:FindFirstChild("Systems") and script.Parent.Systems:FindFirstChild("BrainrotModelReplicator")
+if replicatorModule then
+	BrainrotModelReplicator = safeRequire(replicatorModule, "BrainrotModelReplicator")
+else
+	warn("⚠️ BrainrotModelReplicator not found - 3D viewport feature disabled (rolling still works with static images)")
+end
 
--- Verify all modules loaded
-if not (DataManager and RollingSystem and StealingSystem and BaseManager and RebirthHandler and StatsManager and BrainrotModelReplicator and BrainrotData and Config) then
+-- Verify CRITICAL modules loaded (BrainrotModelReplicator is optional)
+if not (DataManager and RollingSystem and StealingSystem and BaseManager and RebirthHandler and StatsManager and BrainrotData and Config) then
 	error("❌ Critical modules failed to load! Check the Output above for details.")
 end
 
@@ -201,8 +205,12 @@ end
 -- Initialize systems
 print("Initializing systems...")
 
--- First, replicate brainrot models to ReplicatedStorage for client ViewportFrames
-BrainrotModelReplicator.Init()
+-- OPTIONAL: Replicate brainrot models to ReplicatedStorage for client ViewportFrames
+if BrainrotModelReplicator then
+	BrainrotModelReplicator.Init()
+else
+	warn("⚠️ Skipping model replication - BrainrotModelReplicator not loaded")
+end
 
 StealingSystem.Init()
 StatsManager.Init()

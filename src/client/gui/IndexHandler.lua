@@ -14,7 +14,23 @@ local indexFrame = script.Parent -- Index frame
 
 -- Get modules
 local brainrotData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"))
-local brainrotImageGen = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotImageGenerator"))
+
+-- OPTIONAL: BrainrotImageGenerator for 3D viewports (fallback to static images if not available)
+local brainrotImageGen = nil
+local imageGenModule = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("BrainrotImageGenerator")
+if imageGenModule then
+	local success, result = pcall(function()
+		return require(imageGenModule)
+	end)
+	if success then
+		brainrotImageGen = result
+		print("✓ IndexHandler: BrainrotImageGenerator loaded - 3D viewports enabled")
+	else
+		warn("⚠️ IndexHandler: BrainrotImageGenerator failed to load - using static images")
+	end
+else
+	warn("⚠️ IndexHandler: BrainrotImageGenerator not found - using static images")
+end
 
 -- Get RemoteFunction
 local events = ReplicatedStorage:WaitForChild("Events")
@@ -144,12 +160,19 @@ function loadIndex()
 
 		-- Update
 		if isUnlocked then
-			-- Create viewport to display the 3D model
-			local viewport = brainrotImageGen.SetupViewportInImage(characterImage, brainrot.ID)
-			if not viewport then
-				-- Fallback to static image if viewport fails
+			-- Try to create viewport to display the 3D model (if available)
+			if brainrotImageGen then
+				local success, viewport = pcall(function()
+					return brainrotImageGen.SetupViewportInImage(characterImage, brainrot.ID)
+				end)
+
+				if not success or not viewport then
+					-- Viewport failed, use static image
+					characterImage.Image = brainrot.ImageId
+				end
+			else
+				-- No image generator available, use static image
 				characterImage.Image = brainrot.ImageId
-				print("⚠️ Index: Viewport creation failed for", brainrot.ID, "- using static image")
 			end
 
 			nameLabel.Text = brainrot.DisplayName
