@@ -9,15 +9,36 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
--- Wait for modules to load
-local DataManager = require(script.Parent.Core.DataManager)
-local RollingSystem = require(script.Parent.Core.RollingSystem)
-local StealingSystem = require(script.Parent.Core.StealingSystem)
-local BaseManager = require(script.Parent.Systems.BaseManager)
-local RebirthHandler = require(script.Parent.Systems.RebirthHandler)
-local StatsManager = require(script.Parent.Leaderboards.StatsManager)
-local BrainrotData = require(ReplicatedStorage.Modules.BrainrotData)
-local Config = require(ReplicatedStorage.Modules.Config)
+-- Wait for modules to load with error handling
+print("Loading modules...")
+
+local function safeRequire(module, name)
+	local success, result = pcall(function()
+		return require(module)
+	end)
+	if success then
+		print("✓", name, "loaded")
+		return result
+	else
+		warn("✗ Failed to load", name, ":", result)
+		warn("   Expected path:", module:GetFullName())
+		return nil
+	end
+end
+
+local DataManager = safeRequire(script.Parent:WaitForChild("Core"):WaitForChild("DataManager"), "DataManager")
+local RollingSystem = safeRequire(script.Parent:WaitForChild("Core"):WaitForChild("RollingSystem"), "RollingSystem")
+local StealingSystem = safeRequire(script.Parent:WaitForChild("Core"):WaitForChild("StealingSystem"), "StealingSystem")
+local BaseManager = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("BaseManager"), "BaseManager")
+local RebirthHandler = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("RebirthHandler"), "RebirthHandler")
+local StatsManager = safeRequire(script.Parent:WaitForChild("Leaderboards"):WaitForChild("StatsManager"), "StatsManager")
+local BrainrotData = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"), "BrainrotData")
+local Config = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Config"), "Config")
+
+-- Verify all modules loaded
+if not (DataManager and RollingSystem and StealingSystem and BaseManager and RebirthHandler and StatsManager and BrainrotData and Config) then
+	error("❌ Critical modules failed to load! Check the Output above for details.")
+end
 
 -- Create Events folder
 local eventsFolder = Instance.new("Folder")

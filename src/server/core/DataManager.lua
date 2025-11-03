@@ -11,10 +11,19 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- IMPORTANT: You need to install ProfileService
--- For now, we'll create a placeholder that can be replaced
-local ProfileService = require(ServerStorage:WaitForChild("ProfileService"))
-local Config = require(ReplicatedStorage.Modules.Config)
+-- Try to load ProfileService, fall back to mock if not found
+local ProfileService
+local profileServiceModule = ServerStorage:FindFirstChild("ProfileService")
+
+if profileServiceModule then
+	ProfileService = require(profileServiceModule)
+	print("✓ ProfileService loaded")
+else
+	warn("⚠️ ProfileService not found! Using mock (NO DATA PERSISTENCE)")
+	ProfileService = require(script.Parent.Parent.MockProfileService)
+end
+
+local Config = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Config"))
 
 local DataManager = {}
 DataManager.Profiles = {}
