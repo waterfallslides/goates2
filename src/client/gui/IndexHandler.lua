@@ -13,8 +13,8 @@ local player = Players.LocalPlayer
 local indexFrame = script.Parent -- Index frame
 
 -- Get modules
-local brainrotData = require(ReplicatedStorage.Modules.BrainrotData)
-local brainrotImageGen = require(ReplicatedStorage.Modules.BrainrotImageGenerator)
+local brainrotData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"))
+local brainrotImageGen = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotImageGenerator"))
 
 -- Get RemoteFunction
 local events = ReplicatedStorage:WaitForChild("Events")
