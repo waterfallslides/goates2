@@ -1,0 +1,196 @@
+--[[
+	MainServer.lua
+	Main server entry point - Connects all systems
+	SIMPLE, CLEAN, OPTIMIZED
+]]
+
+local ServerScriptService = game:GetService("ServerScriptService")
+local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+-- Wait for modules to load
+local DataManager = require(script.Parent.Core.DataManager)
+local RollingSystem = require(script.Parent.Core.RollingSystem)
+local StealingSystem = require(script.Parent.Core.StealingSystem)
+local BaseManager = require(script.Parent.Systems.BaseManager)
+local RebirthHandler = require(script.Parent.Systems.RebirthHandler)
+local StatsManager = require(script.Parent.Leaderboards.StatsManager)
+local BrainrotData = require(ReplicatedStorage.Modules.BrainrotData)
+local Config = require(ReplicatedStorage.Modules.Config)
+
+-- Create Events folder
+local eventsFolder = Instance.new("Folder")
+eventsFolder.Name = "Events"
+eventsFolder.Parent = ReplicatedStorage
+
+-- Create RemoteEvents
+local remoteEvents = {
+	-- Client → Server
+	RollBrainrot = Instance.new("RemoteEvent"),
+	KeepBrainrot = Instance.new("RemoteEvent"),
+	SkipBrainrot = Instance.new("RemoteEvent"),
+	ProcessRebirth = Instance.new("RemoteEvent"),
+	ToggleAutoRoll = Instance.new("RemoteEvent"),
+	ToggleFastRoll = Instance.new("RemoteEvent"),
+
+	-- Server → Client
+	RollResult = Instance.new("RemoteEvent"),
+	UpdateServerLuck = Instance.new("RemoteEvent"),
+	SendNotification = Instance.new("RemoteEvent"),
+	StealAlert = Instance.new("RemoteEvent"),
+}
+
+-- Create RemoteFunctions
+local remoteFunctions = {
+	GetPlayerData = Instance.new("RemoteFunction"),
+	GetIndexData = Instance.new("RemoteFunction"),
+	GetRebirthStatus = Instance.new("RemoteFunction"),
+}
+
+-- Parent all remotes
+for name, remote in pairs(remoteEvents) do
+	remote.Name = name
+	remote.Parent = eventsFolder
+end
+
+for name, remote in pairs(remoteFunctions) do
+	remote.Name = name
+	remote.Parent = eventsFolder
+end
+
+print("✓ RemoteEvents created")
+
+-- ==================== SERVER HANDLERS ====================
+
+-- Handle roll request
+remoteEvents.RollBrainrot.OnServerEvent:Connect(function(player)
+	-- Rate limit check (simple)
+	local character = player.Character
+	if not character then return end
+
+	-- Calculate luck
+	local luck = RollingSystem.CalculateLuck(player)
+
+	-- Roll brainrot
+	local result = RollingSystem.RollBrainrot(luck)
+
+	if result then
+		-- Increment rolls
+		DataManager.IncrementRolls(player)
+
+		-- Send result to client
+		remoteEvents.RollResult:FireClient(player, result)
+	end
+end)
+
+-- Handle keep brainrot
+remoteEvents.KeepBrainrot.OnServerEvent:Connect(function(player, brainrotID, frame)
+	-- Validate
+	if not brainrotID or not frame then return end
+
+	-- Check if player has space
+	local hasSpace, floor, padNumber = DataManager.HasAvailablePad(player)
+
+	if hasSpace then
+		-- Assign to pad
+		DataManager.AssignToPad(player, floor, padNumber, brainrotID, frame)
+		BaseManager.PlaceBrainrot(player, floor, padNumber, brainrotID, frame)
+
+		-- Notify client
+		remoteEvents.SendNotification:FireClient(player, "Added to base!", "Success")
+	else
+		-- No space - would show replacement GUI here
+		remoteEvents.SendNotification:FireClient(player, "Base is full!", "Error")
+	end
+end)
+
+-- Handle skip brainrot
+remoteEvents.SkipBrainrot.OnServerEvent:Connect(function(player)
+	-- Just acknowledge, nothing to do
+	print(player.Name, "skipped a brainrot")
+end)
+
+-- Handle rebirth request
+remoteEvents.ProcessRebirth.OnServerEvent:Connect(function(player)
+	local success, message = RebirthHandler.ProcessRebirth(player)
+
+	if success then
+		remoteEvents.SendNotification:FireClient(player, message, "Success")
+	else
+		remoteEvents.SendNotification:FireClient(player, message, "Error")
+	end
+end)
+
+-- Handle auto roll toggle
+remoteEvents.ToggleAutoRoll.OnServerEvent:Connect(function(player, enabled)
+	local data = DataManager.GetData(player)
+	if data then
+		data.ActivePerks.AutoRoll = enabled
+		print(player.Name, "toggled AutoRoll:", enabled)
+	end
+end)
+
+-- Handle fast roll toggle
+remoteEvents.ToggleFastRoll.OnServerEvent:Connect(function(player, enabled)
+	local data = DataManager.GetData(player)
+	if data then
+		data.ActivePerks.FastRoll = enabled
+		print(player.Name, "toggled FastRoll:", enabled)
+	end
+end)
+
+-- ==================== REMOTE FUNCTIONS ====================
+
+-- Get player data
+remoteFunctions.GetPlayerData.OnServerInvoke = function(player)
+	return DataManager.GetData(player)
+end
+
+-- Get index data
+remoteFunctions.GetIndexData.OnServerInvoke = function(player)
+	local data = DataManager.GetData(player)
+	if data then
+		return data.Index
+	end
+	return {}
+end
+
+-- Get rebirth status
+remoteFunctions.GetRebirthStatus.OnServerInvoke = function(player)
+	local canRebirth, message = RebirthHandler.CanRebirth(player)
+	local collected, total = RebirthHandler.GetProgress(player)
+
+	return {
+		CanRebirth = canRebirth,
+		Message = message,
+		Collected = collected,
+		Total = total,
+		Progress = collected / total
+	}
+end
+
+-- ==================== INITIALIZATION ====================
+
+-- Initialize systems
+print("Initializing systems...")
+StealingSystem.Init()
+StatsManager.Init()
+print("✓ Systems initialized")
+
+-- Player added handler (load base)
+Players.PlayerAdded:Connect(function(player)
+	-- Wait for data to load
+	local profile = DataManager.GetProfile(player)
+	if profile then
+		task.wait(1) -- Small delay for workspace to load
+
+		-- Load base from data
+		local data = DataManager.GetData(player)
+		if data then
+			BaseManager.LoadBase(player, data)
+		end
+	end
+end)
+
+print("✓ MainServer loaded successfully!")
