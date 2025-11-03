@@ -25,12 +25,13 @@ function BrainrotImageGenerator.CreateViewportForBrainrot(brainrotID, parent)
 		return cachedViewport
 	end
 
-	-- Try to find the model in ReplicatedStorage
+	-- Try to find the model in ReplicatedStorage (copied from ServerStorage by server)
 	local replicatedStorage = game:GetService("ReplicatedStorage")
-	local brainrotsFolder = replicatedStorage:FindFirstChild("Brainrots")
+	local brainrotsFolder = replicatedStorage:FindFirstChild("BrainrotModels")
 
 	if not brainrotsFolder then
-		warn("BrainrotImageGenerator: Brainrots folder not found in ReplicatedStorage")
+		warn("BrainrotImageGenerator: BrainrotModels folder not found in ReplicatedStorage")
+		warn("  Make sure server has replicated models from ServerStorage!")
 		return nil
 	end
 

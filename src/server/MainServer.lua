@@ -32,6 +32,7 @@ local StealingSystem = safeRequire(script.Parent:WaitForChild("Core"):WaitForChi
 local BaseManager = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("BaseManager"), "BaseManager")
 local RebirthHandler = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("RebirthHandler"), "RebirthHandler")
 local StatsManager = safeRequire(script.Parent:WaitForChild("Leaderboards"):WaitForChild("StatsManager"), "StatsManager")
+local BrainrotModelReplicator = safeRequire(script.Parent:WaitForChild("Systems"):WaitForChild("BrainrotModelReplicator"), "BrainrotModelReplicator")
 local BrainrotData = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"), "BrainrotData")
 local Config = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Config"), "Config")
 
@@ -40,7 +41,7 @@ local Config = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChil
 -- No need to require it here
 
 -- Verify all modules loaded
-if not (DataManager and RollingSystem and StealingSystem and BaseManager and RebirthHandler and StatsManager and BrainrotData and Config) then
+if not (DataManager and RollingSystem and StealingSystem and BaseManager and RebirthHandler and StatsManager and BrainrotModelReplicator and BrainrotData and Config) then
 	error("❌ Critical modules failed to load! Check the Output above for details.")
 end
 
@@ -199,6 +200,10 @@ end
 
 -- Initialize systems
 print("Initializing systems...")
+
+-- First, replicate brainrot models to ReplicatedStorage for client ViewportFrames
+BrainrotModelReplicator.Init()
+
 StealingSystem.Init()
 StatsManager.Init()
 print("✓ Systems initialized")

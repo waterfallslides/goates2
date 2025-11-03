@@ -1,13 +1,13 @@
 # 🎨 Setup Brainrot Models - 3D ViewportFrame Images
 
-Your rolling GUI now displays **actual 3D models** of brainrots instead of static images!
+Your rolling GUI and Index now display **actual 3D models** of brainrots instead of static images!
 
 ## 📦 Required Structure
 
-Place your brainrot models in **ReplicatedStorage** with this structure:
+Place your brainrot models in **ServerStorage** with this structure:
 
 ```
-ReplicatedStorage/
+ServerStorage/
 └── Brainrots/           ← Create this folder
     ├── Common/          ← Optional: Organize by rarity
     │   ├── SkibidiToilet (Model)
@@ -32,7 +32,7 @@ ReplicatedStorage/
 **OR** place them directly in Brainrots/ without subfolders:
 
 ```
-ReplicatedStorage/
+ServerStorage/
 └── Brainrots/
     ├── SkibidiToilet (Model)
     ├── Griddy (Model)
@@ -40,6 +40,22 @@ ReplicatedStorage/
     ├── Sigma (Model)
     └── ... etc
 ```
+
+## 🔄 How It Works (ServerStorage → ReplicatedStorage)
+
+**Why ServerStorage?**
+- Your base system uses ServerStorage/Brainrots/ to spawn brainrots on bases
+- The server automatically **replicates** these models to ReplicatedStorage on startup
+- Clients can then access them for ViewportFrames
+
+**Automatic Replication:**
+1. Server starts → BrainrotModelReplicator runs
+2. Copies all models from ServerStorage/Brainrots/ → ReplicatedStorage/BrainrotModels/
+3. Removes scripts from copies (clients don't need them)
+4. Maintains folder structure (rarity subfolders)
+5. Clients now have access for ViewportFrames!
+
+**You don't need to do anything!** The server handles replication automatically. ✅
 
 ## 📋 Model Requirements
 
@@ -64,10 +80,11 @@ The model names **must match** the IDs in `src/replicated/modules/BrainrotData.l
 ## 🎥 How It Works
 
 The system automatically:
-1. **Finds** the model in ReplicatedStorage/Brainrots/
-2. **Clones** it into a ViewportFrame
-3. **Positions** a camera to view it from the front
-4. **Displays** it in your rolling GUI
+1. **Server replicates** models from ServerStorage → ReplicatedStorage/BrainrotModels/
+2. **Client finds** the model in ReplicatedStorage/BrainrotModels/
+3. **Clones** it into a ViewportFrame
+4. **Positions** a camera to view it from the front
+5. **Displays** it in your rolling GUI and Index!
 
 ### Camera Positioning
 
@@ -136,11 +153,21 @@ camera.FieldOfView = 40  -- Line ~86
 ### "Model not found for brainrotID"
 
 **Check:**
-1. Model exists in ReplicatedStorage/Brainrots/
-2. Model name **exactly matches** ID in BrainrotData.lua (case-sensitive!)
-3. It's a Model, not a Folder or Part
+1. Model exists in **ServerStorage/Brainrots/**
+2. Server successfully replicated models (check Output for "✅ Replicated X brainrot models")
+3. Model name **exactly matches** ID in BrainrotData.lua (case-sensitive!)
+4. It's a Model, not a Folder or Part
 
 **Fix:** Rename your model or update BrainrotData.lua
+
+### "BrainrotModels folder not found in ReplicatedStorage"
+
+**Check:**
+1. Models exist in ServerStorage/Brainrots/
+2. MainServer is running (look for "✅ Replicated X brainrot models" in Output)
+3. BrainrotModelReplicator loaded successfully
+
+**Fix:** Make sure ServerStorage/Brainrots/ folder exists with models inside
 
 ### Viewport shows black/empty
 
@@ -172,20 +199,29 @@ camera.FieldOfView = 40  -- Line ~86
 
 1. **Place test model:**
    ```
-   ReplicatedStorage → Brainrots → SkibidiToilet (Model)
+   ServerStorage → Brainrots → SkibidiToilet (Model)
    ```
 
 2. **Play game**
 
-3. **Click Roll**
-
-4. **Check Output:**
+3. **Check Output - Server should show:**
    ```
-   ✓ Created viewport for: SkibidiToilet
+   📦 Replicating brainrot models to ReplicatedStorage...
+     ✓ Copied: SkibidiToilet
+   ✅ Replicated 1 brainrot models to ReplicatedStorage/BrainrotModels/
+   ```
+
+4. **Click Roll**
+
+5. **Check Output - Client should show:**
+   ```
+   ✓ Viewport created for: SkibidiToilet
    ✨ Result shown: Skibidi Toilet - Common
    ```
 
-5. **Should see:** 3D model displayed in RollingFrame!
+6. **Should see:** 3D model displayed in RollingFrame!
+
+7. **Open Index GUI:** Models should also appear in your collection!
 
 ## 🎯 Benefits Over Static Images
 
@@ -198,9 +234,17 @@ camera.FieldOfView = 40  -- Line ~86
 
 ## 📝 Next Steps
 
-1. Create ReplicatedStorage/Brainrots/ folder
+1. Create **ServerStorage/Brainrots/** folder
 2. Place all your brainrot models inside (as Models)
-3. Name them to match IDs in BrainrotData.lua
-4. Test rolling - should see 3D models!
+3. Organize by rarity (optional): Common/, Rare/, Epic/, etc.
+4. Name them to match IDs in BrainrotData.lua
+5. Play game - server automatically replicates models
+6. Test rolling and Index - should see 3D models!
 
-**That's it!** No more managing image assets. 🚀
+## 🎯 Where Models Are Used
+
+✅ **Rolling GUI** - Shows 3D model when you roll
+✅ **Index GUI** - Shows 3D models in your collection
+✅ **Player Bases** - Server spawns actual models from ServerStorage
+
+**One location (ServerStorage), three uses!** No more managing image assets. 🚀

@@ -14,6 +14,7 @@ local indexFrame = script.Parent -- Index frame
 
 -- Get modules
 local brainrotData = require(ReplicatedStorage.Modules.BrainrotData)
+local brainrotImageGen = require(ReplicatedStorage.Modules.BrainrotImageGenerator)
 
 -- Get RemoteFunction
 local events = ReplicatedStorage:WaitForChild("Events")
@@ -143,12 +144,20 @@ function loadIndex()
 
 		-- Update
 		if isUnlocked then
-			characterImage.Image = brainrot.ImageId
+			-- Create viewport to display the 3D model
+			local viewport = brainrotImageGen.SetupViewportInImage(characterImage, brainrot.ID)
+			if not viewport then
+				-- Fallback to static image if viewport fails
+				characterImage.Image = brainrot.ImageId
+				print("⚠️ Index: Viewport creation failed for", brainrot.ID, "- using static image")
+			end
+
 			nameLabel.Text = brainrot.DisplayName
 			rarityLabel.Text = brainrot.Rarity
 			rarityLabel.TextColor3 = brainrotData.RarityColors[brainrot.Rarity]
 		else
-			characterImage.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png" -- Black
+			-- Locked - show placeholder
+			characterImage.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
 			characterImage.ImageColor3 = Color3.new(0, 0, 0)
 			nameLabel.Text = "???"
 			rarityLabel.Text = brainrot.Rarity
