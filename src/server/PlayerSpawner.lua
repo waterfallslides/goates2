@@ -3,13 +3,12 @@
 	Spawns players at their own base
 	SIMPLE, CLEAN, OPTIMIZED
 
-	Place in: ServerScriptService/Server/ as Script
+	Place in: ServerScriptService/Server/PlayerSpawner as Script (NOT ModuleScript)
+	This runs independently - MainServer doesn't need to require it
 ]]
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-
-local PlayerSpawner = {}
 
 -- Get player's base
 local function getPlayerBase(player)
@@ -62,7 +61,7 @@ local function getSpawnLocation(base)
 end
 
 -- Spawn player at their base
-function PlayerSpawner.SpawnPlayerAtBase(player)
+local function spawnPlayerAtBase(player)
 	local character = player.Character
 	if not character then return false end
 
@@ -97,10 +96,8 @@ Players.PlayerAdded:Connect(function(player)
 		task.wait(0.5)
 
 		-- Spawn at base
-		PlayerSpawner.SpawnPlayerAtBase(player)
+		spawnPlayerAtBase(player)
 	end)
 end)
 
 print("✓ PlayerSpawner loaded")
-
-return PlayerSpawner

@@ -78,9 +78,9 @@ print("📦 GUI:", gui.Name)
 
 local rollingFrame = findOrWarn(gui, "RollingFrame", "Frame", true)
 local brainrotImage = findOrWarn(rollingFrame, "BrainrotImage", "ImageLabel", true)
-local keepButton = findOrWarn(rollingFrame, "Keep", "TextButton", true)
+local keepButton = findOrWarn(rollingFrame, "Keep", nil, true)  -- Can be ImageButton or TextButton
 local rarityLabel = findOrWarn(rollingFrame, "Rarity", "TextLabel", true)
-local rollingLabel = findOrWarn(rollingFrame, "Rolling", "TextLabel", true)
+local rollingLabel = findOrWarn(rollingFrame, "Rolling", nil, false)  -- Optional, can be any type
 local nameLabel = findOrWarn(rollingFrame, "Name", "TextLabel", true)
 
 print("✅ All required elements found! Setting up connections...")
@@ -91,6 +91,19 @@ local isRolling = false
 local autoRollEnabled = false
 local fastRollEnabled = false
 local currentResult = nil
+
+-- ==================== HELPER FUNCTIONS ====================
+
+-- Safely set text only if element supports it
+local function safeSetText(element, text)
+	if element and (element:IsA("TextLabel") or element:IsA("TextButton")) then
+		element.Text = text
+	elseif element then
+		-- Element exists but doesn't support Text (like ImageButton)
+		-- Just skip it silently
+		print("  ℹ️ Skipping text set on", element.Name, "(not a text element)")
+	end
+end
 
 -- ==================== UI MANAGEMENT ====================
 
@@ -103,7 +116,7 @@ local function initializeUI()
 	keepButton.Visible = false
 
 	-- Clear all labels
-	rollingLabel.Text = ""
+	safeSetText(rollingLabel, "")
 	nameLabel.Text = ""
 	rarityLabel.Text = ""
 	brainrotImage.Image = ""
@@ -120,7 +133,7 @@ local function startRolling()
 	keepButton.Visible = false
 
 	-- Show "ROLLING..." text
-	rollingLabel.Text = "ROLLING..."
+	safeSetText(rollingLabel, "ROLLING...")
 	nameLabel.Text = ""
 	rarityLabel.Text = "???"
 
@@ -132,7 +145,7 @@ local function hideRollingFrame()
 	rollingFrame.Visible = false
 	keepButton.Visible = false
 	brainrotImage.Image = ""
-	rollingLabel.Text = ""
+	safeSetText(rollingLabel, "")
 	nameLabel.Text = ""
 	rarityLabel.Text = ""
 
@@ -181,7 +194,7 @@ local function showResult(result)
 	brainrotImage.ImageColor3 = Color3.new(1, 1, 1)
 
 	-- Update labels
-	rollingLabel.Text = result.DisplayName
+	safeSetText(rollingLabel, result.DisplayName)
 	nameLabel.Text = result.DisplayName
 	rarityLabel.Text = result.Rarity .. " - " .. result.Frame
 	rarityLabel.TextColor3 = result.Color

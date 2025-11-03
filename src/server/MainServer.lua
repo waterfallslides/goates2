@@ -35,11 +35,9 @@ local StatsManager = safeRequire(script.Parent:WaitForChild("Leaderboards"):Wait
 local BrainrotData = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"), "BrainrotData")
 local Config = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Config"), "Config")
 
--- Optional: PlayerSpawner (spawns players at their base)
-local PlayerSpawner = script.Parent:FindFirstChild("PlayerSpawner")
-if PlayerSpawner then
-	safeRequire(PlayerSpawner, "PlayerSpawner")
-end
+-- Optional: PlayerSpawner (runs independently as a Script, not a ModuleScript)
+-- If PlayerSpawner exists as a Script in Server/, it will auto-run
+-- No need to require it here
 
 -- Verify all modules loaded
 if not (DataManager and RollingSystem and StealingSystem and BaseManager and RebirthHandler and StatsManager and BrainrotData and Config) then
