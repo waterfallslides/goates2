@@ -62,6 +62,7 @@ print("  ✓ Events found")
 
 -- Get modules
 local brainrotData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"))
+local brainrotImageGen = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotImageGenerator"))
 print("  ✓ Modules loaded")
 
 -- Find YOUR DiceFrame (this script is IN DiceFrame)
@@ -80,7 +81,7 @@ local rollingFrame = findOrWarn(gui, "RollingFrame", "Frame", true)
 local brainrotImage = findOrWarn(rollingFrame, "BrainrotImage", "ImageLabel", true)
 local keepButton = findOrWarn(rollingFrame, "Keep", nil, true)  -- Can be ImageButton or TextButton
 local rarityLabel = findOrWarn(rollingFrame, "Rarity", "TextLabel", true)
-local rollingLabel = findOrWarn(rollingFrame, "Rolling", nil, false)  -- Optional, can be any type
+local rollingLabel = findOrWarn(rollingFrame, "Rolling", nil, false)  -- Optional, can be any type (also acts as Roll button in RollingFrame)
 local nameLabel = findOrWarn(rollingFrame, "Name", "TextLabel", true)
 
 print("✅ All required elements found! Setting up connections...")
@@ -115,11 +116,23 @@ local function initializeUI()
 	-- Hide Keep button initially (only show after roll completes)
 	keepButton.Visible = false
 
-	-- Clear all labels
+	-- Show Rolling button initially (for starting rolls from RollingFrame)
+	if rollingLabel then
+		rollingLabel.Visible = true
+	end
+
+	-- Clear all labels and viewports
 	safeSetText(rollingLabel, "")
 	nameLabel.Text = ""
 	rarityLabel.Text = ""
 	brainrotImage.Image = ""
+
+	-- Remove any existing viewports
+	for _, child in ipairs(brainrotImage:GetChildren()) do
+		if child:IsA("ViewportFrame") then
+			child:Destroy()
+		end
+	end
 
 	print("🎨 UI initialized - RollingFrame hidden, ready to roll!")
 end
@@ -132,8 +145,11 @@ local function startRolling()
 	-- Hide Keep button during roll (only show after success)
 	keepButton.Visible = false
 
-	-- Show "ROLLING..." text
-	safeSetText(rollingLabel, "ROLLING...")
+	-- Show "ROLLING..." text and make Rolling button visible during animation
+	if rollingLabel then
+		rollingLabel.Visible = true
+		safeSetText(rollingLabel, "ROLLING...")
+	end
 	nameLabel.Text = ""
 	rarityLabel.Text = "???"
 
@@ -144,7 +160,15 @@ end
 local function hideRollingFrame()
 	rollingFrame.Visible = false
 	keepButton.Visible = false
+
+	-- Clear viewport and image
 	brainrotImage.Image = ""
+	for _, child in ipairs(brainrotImage:GetChildren()) do
+		if child:IsA("ViewportFrame") then
+			child:Destroy()
+		end
+	end
+
 	safeSetText(rollingLabel, "")
 	nameLabel.Text = ""
 	rarityLabel.Text = ""
@@ -189,12 +213,24 @@ end
 
 -- Show result after rolling
 local function showResult(result)
-	-- Update image
-	brainrotImage.Image = result.ImageId
-	brainrotImage.ImageColor3 = Color3.new(1, 1, 1)
+	-- Create viewport to display the 3D model
+	local viewport = brainrotImageGen.SetupViewportInImage(brainrotImage, result.BrainrotID)
+
+	if not viewport then
+		-- Fallback to static image if viewport fails
+		brainrotImage.Image = result.ImageId
+		brainrotImage.ImageColor3 = Color3.new(1, 1, 1)
+		print("⚠️ Viewport creation failed, using static image")
+	else
+		print("✓ Viewport created for:", result.BrainrotID)
+	end
+
+	-- Hide "Rolling" button when roll finishes
+	if rollingLabel then
+		rollingLabel.Visible = false
+	end
 
 	-- Update labels
-	safeSetText(rollingLabel, result.DisplayName)
 	nameLabel.Text = result.DisplayName
 	rarityLabel.Text = result.Rarity .. " - " .. result.Frame
 	rarityLabel.TextColor3 = result.Color
@@ -251,6 +287,26 @@ keepButton.MouseButton1Click:Connect(function()
 	currentResult = nil
 	isRolling = false
 end)
+
+-- Rolling button (in RollingFrame) clicked - starts a new roll
+if rollingLabel and rollingLabel:IsA("ImageButton") or rollingLabel and rollingLabel:IsA("TextButton") then
+	rollingLabel.MouseButton1Click:Connect(function()
+		if isRolling then
+			print("⚠️ Already rolling, please wait...")
+			return
+		end
+
+		print("▶ Rolling button (RollingFrame) clicked - starting new roll")
+		isRolling = true
+		buttonBounce(rollingLabel)
+
+		-- Show RollingFrame and start animation
+		startRolling()
+
+		-- Tell server to roll
+		rollBrainrotEvent:FireServer()
+	end)
+end
 
 -- AutoRoll button (if you have it)
 if autoRollButton and toggleAutoRoll then
